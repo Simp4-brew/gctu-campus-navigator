@@ -1,0 +1,8 @@
+{
+  "name": "GCTU Campus Navigator",
+  "description": "Progressive Web App for navigating the Ghana Communication Technology University campus with offline support, live GPS, and Dijkstra shortest path routing.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
