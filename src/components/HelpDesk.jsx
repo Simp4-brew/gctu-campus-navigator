@@ -35,7 +35,9 @@ const CONTACTS = [
 export default function HelpDesk() {
   const [openFaq, setOpenFaq] = useState(null);
   const [tickets, setTickets] = useState([]);
-  
+  const [faqs, setFaqs] = useState([]);
+  const [contacts, setContacts] = useState([]);
+
   // Form State
   const [name, setName] = useState('');
   const [faculty, setFaculty] = useState('Computing (FoCIS)');
@@ -44,33 +46,36 @@ export default function HelpDesk() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  // Load existing tickets from LocalStorage on mount
+  const API_BASE = '/api';
+
+  // Load FAQs, contacts, and tickets from the API on mount
   useEffect(() => {
-    const savedTickets = localStorage.getItem('gctu_navigator_tickets');
-    if (savedTickets) {
-      setTickets(JSON.parse(savedTickets));
-    } else {
-      // Default welcome ticket from helpdesk to make it friendly
-      const defaultTicket = {
-        id: "TKT-1001",
-        name: "Campus Support",
-        subject: "Welcome to GCTU Support!",
-        message: "This is your support log. Feel free to submit any questions regarding the campus, and our automatic helpdesk bots will assist you instantly.",
-        faculty: "IT Welfare",
-        status: "replied",
-        reply: "Hello! We are glad to assist you. If you are offline, our AI router will still trigger helpful diagnostic guides immediately. Have a great day navigating Accra campus!",
-        date: new Date().toLocaleDateString()
-      };
-      setTickets([defaultTicket]);
-      localStorage.setItem('gctu_navigator_tickets', JSON.stringify([defaultTicket]));
-    }
+    fetch(`${API_BASE}/faqs`)
+      .then(r => r.json())
+      .then(setFaqs)
+      .catch(err => console.error('Failed to load FAQs:', err));
+
+    fetch(`${API_BASE}/contacts`)
+      .then(r => r.json())
+      .then(setContacts)
+      .catch(err => console.error('Failed to load contacts:', err));
+
+    fetchTickets();
   }, []);
+
+  const fetchTickets = () => {
+    fetch(`${API_BASE}/tickets`)
+      .then(r => r.json())
+      .then(setTickets)
+      .catch(err => console.error('Failed to load tickets:', err));
+  };
+
 
   const toggleFaq = (index) => {
     setOpenFaq(openFaq === index ? null : index);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!name || !subject || !message) {
       alert("Please fill out all required fields.");
@@ -79,59 +84,35 @@ export default function HelpDesk() {
 
     setSubmitting(true);
 
-    const ticketId = `TKT-${Math.floor(1000 + Math.random() * 9000)}`;
-    const newTicket = {
-      id: ticketId,
-      name,
-      faculty,
-      subject,
-      message,
-      status: 'open',
-      date: new Date().toLocaleDateString()
-    };
-
-    const updatedTickets = [newTicket, ...tickets];
-    setTickets(updatedTickets);
-    localStorage.setItem('gctu_navigator_tickets', JSON.stringify(updatedTickets));
-
-    // Clear form
-    setName('');
-    setSubject('');
-    setMessage('');
-    setSuccess(true);
-    setSubmitting(false);
-
-    // Simulated Bot Auto-responder after 3 seconds!
-    setTimeout(() => {
-      setTickets((currentTickets) => {
-        const parsed = currentTickets.map(t => {
-          if (t.id === ticketId) {
-            let botReply = "Thank you for contacting GCTU Help Desk. We have received your query. An academic officer from your faculty will contact you shortly.";
-            
-            // Dynamic helpful responds based on keywords!
-            const lowerMsg = (message + " " + subject).toLowerCase();
-            if (lowerMsg.includes('wi-fi') || lowerMsg.includes('wifi') || lowerMsg.includes('internet')) {
-              botReply = "Hi! For campus Wi-Fi troubles, please ensure you are in range of the GCTU-STUDENTS routers located around COLT block and Administration. Clear your phone cache or visit the CIT directorate floor in the Administration building to renew your access.";
-            } else if (lowerMsg.includes('clinic') || lowerMsg.includes('sick') || lowerMsg.includes('hospital') || lowerMsg.includes('health')) {
-              botReply = "Hello. If you require medical attention, you may walk straight into the GCTU School Hospital located next to SGSR block. Ensure you carry your GCTU Student ID card. For absolute medical emergencies, please dial our direct line at +233 244 567 890.";
-            } else if (lowerMsg.includes('portal') || lowerMsg.includes('grade') || lowerMsg.includes('exam')) {
-              botReply = "Greetings! Digital Student Portal logins are managed by Academic registry. If you are locked out or see incorrect transcripts, please write directly to registry@gctu.edu.gh with your index number and an image of your receipt.";
-            } else if (lowerMsg.includes('fees') || lowerMsg.includes('money') || lowerMsg.includes('pay') || lowerMsg.includes('bank')) {
-              botReply = "Hi! Tuition payments are validated through EcoBank or Consolidated Bank Ghana (CBG) partners. Once deposited, ensure you bring your physical deposit slip to the finance counter at the Admin block to obtain your receipt.";
-            }
-
-            return {
-              ...t,
-              status: 'replied',
-              reply: botReply
-            };
-          }
-          return t;
-        });
-        localStorage.setItem('gctu_navigator_tickets', JSON.stringify(parsed));
-        return parsed;
+    try {
+      const res = await fetch(`${API_BASE}/tickets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, faculty, subject, message })
       });
-    }, 2500);
+
+      if (!res.ok) throw new Error('Failed to submit ticket');
+
+      const newTicket = await res.json();
+      setTickets((prev) => [newTicket, ...prev]);
+
+      // Clear form
+      setName('');
+      setSubject('');
+      setMessage('');
+      setSuccess(true);
+
+      // Poll for the bot reply after a short delay
+      setTimeout(() => {
+        fetchTickets();
+      }, 3000);
+
+    } catch (err) {
+      console.error(err);
+      alert("Something went wrong submitting your request. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
 
     setTimeout(() => {
       setSuccess(false);
@@ -149,21 +130,21 @@ export default function HelpDesk() {
           </h3>
           
           <div className="faq-card" id="faq-card-element">
-            {FAQS.map((faq, index) => (
+            {faqs.map((faq, index) => (
               <div 
-                key={faq.id} 
+                key={faq.faqId || faq._id} 
                 className={`faq-item ${openFaq === index ? 'open' : ''}`}
-                id={`faq-item-${faq.id}`}
+                id={`faq-item-${faq.faqId}`}
               >
                 <button 
                   className="faq-trigger" 
-                  id={`faq-trigger-${faq.id}`}
+                  id={`faq-trigger-${faq.faqId}`}
                   onClick={() => toggleFaq(index)}
                 >
                   <span>{faq.question}</span>
                   <span className="faq-icon-arrow">▼</span>
                 </button>
-                <div className="faq-content" id={`faq-content-${faq.id}`}>
+                <div className="faq-content" id={`faq-content-${faq.faqId}`}>
                   <p className="faq-inner-text">{faq.answer}</p>
                 </div>
               </div>
@@ -174,8 +155,8 @@ export default function HelpDesk() {
             <Phone size={18} /> GCTU Support Hotlines
           </h3>
           <div className="contact-list" id="hotline-list">
-            {CONTACTS.map((con, index) => (
-              <div key={index} className="contact-card" id={`contact-card-${index}`}>
+            {contacts.map((con, index) => (
+              <div key={con._id || index} className="contact-card" id={`contact-card-${index}`}>
                 <div className="contact-info">
                   <span className="contact-dept">{con.dept}</span>
                   <span className="contact-phone">{con.phone}</span>
@@ -285,9 +266,9 @@ export default function HelpDesk() {
           </h3>
           <div className="ticket-history" id="ticket-history-list">
             {tickets.map((ticket) => (
-              <div key={ticket.id} className="ticket-item" id={`ticket-item-${ticket.id}`}>
+              <div key={ticket.ticketId || ticket._id} className="ticket-item" id={`ticket-item-${ticket.ticketId}`}>
                 <div className="ticket-top">
-                  <span className="ticket-id">{ticket.id} • {ticket.date}</span>
+                  <span className="ticket-id">{ticket.ticketId} • {ticket.date}</span>
                   <span className={`ticket-status ${ticket.status}`}>
                     {ticket.status === 'open' ? '⌛ Pending' : '✓ Replied'}
                   </span>
@@ -295,7 +276,7 @@ export default function HelpDesk() {
                 <h4 className="ticket-subject">{ticket.subject}</h4>
                 <p className="ticket-msg">"{ticket.message}"</p>
                 {ticket.reply && (
-                  <div className="ticket-reply" id={`ticket-reply-${ticket.id}`}>
+                  <div className="ticket-reply" id={`ticket-reply-${ticket.ticketId}`}>
                     <span className="ticket-reply-author">🏫 Campus Support Desk Officer:</span>
                     <p>{ticket.reply}</p>
                   </div>
