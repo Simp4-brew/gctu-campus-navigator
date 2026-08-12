@@ -20,7 +20,7 @@ This app helps students and visitors navigate the GCTU Tesano campus with ease, 
 **Frontend**
 - React 19
 - Vite
-- TypeScript
+- JavaScript
 - Tailwind CSS
 - Leaflet / React-Leaflet
 - Lucide React (icons)
