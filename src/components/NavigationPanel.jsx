@@ -26,6 +26,7 @@ import {
   Marker,
   Popup,
   Polyline,
+  Circle,
   useMap,
 } from "react-leaflet";
 
@@ -35,34 +36,88 @@ import "./NavigationPanel.css";
    LEAFLET MAP CONTROLLER
 ========================================================= */
 
-function MapController({ center, zoom, active, fitPoints }) {
+function isLatLngPair(value) {
+  return (
+    Array.isArray(value) &&
+    value.length === 2 &&
+    Number.isFinite(value[0]) &&
+    Number.isFinite(value[1])
+  );
+}
+
+function MapController({ center, zoom, active, fitPoints, followGps, routeKey }) {
   const map = useMap();
 
-  const hasFitRef = useRef(false);
+  const fittedRouteRef = useRef(null);
 
+  const hasCenteredOnGpsRef = useRef(false);
+
+  /* -----------------------------------------------------
+     ROUTE OVERVIEW FIT
+     Only runs when we are NOT actively GPS-tracking.
+     Keyed on routeKey so picking a new destination refits;
+     a plain boolean would fit once and then ignore every
+     later route change.
+  ----------------------------------------------------- */
   useEffect(() => {
+    if (followGps) {
+      return;
+    }
+
     if (fitPoints && fitPoints.length > 1) {
-      if (!hasFitRef.current) {
+      if (fittedRouteRef.current !== routeKey) {
         const bounds = L.latLngBounds(fitPoints);
         map.fitBounds(bounds, { padding: [60, 60], animate: true });
-        hasFitRef.current = true;
+        fittedRouteRef.current = routeKey;
       }
       return;
     }
 
-    hasFitRef.current = false;
+    fittedRouteRef.current = null;
 
-    if (
-      Array.isArray(center) &&
-      center.length === 2 &&
-      Number.isFinite(center[0]) &&
-      Number.isFinite(center[1])
-    ) {
+    if (isLatLngPair(center)) {
       map.setView(center, zoom || 18, {
         animate: true,
       });
     }
-  }, [center, zoom, fitPoints, map]);
+  }, [center, zoom, fitPoints, followGps, routeKey, map]);
+
+  /* -----------------------------------------------------
+     LIVE TRACKING
+     Centres once when tracking starts, then only pans when
+     the marker drifts near the edge of the viewport.
+
+     Calling setView on every fix keeps the marker nailed to
+     the exact centre pixel of the map, so the dot looks
+     frozen even while the coordinates are updating - the
+     world scrolls underneath it instead. Letting the marker
+     travel across the viewport is what makes the movement
+     visible.
+  ----------------------------------------------------- */
+  useEffect(() => {
+    if (!followGps) {
+      fittedRouteRef.current = null;
+      hasCenteredOnGpsRef.current = false;
+      return;
+    }
+
+    if (!isLatLngPair(center)) {
+      return;
+    }
+
+    const target = L.latLng(center[0], center[1]);
+
+    if (!hasCenteredOnGpsRef.current) {
+      map.setView(target, zoom || 18, { animate: true });
+      hasCenteredOnGpsRef.current = true;
+      return;
+    }
+
+    // pad(-0.3) = inner 70% of the viewport. Outside that, nudge the map.
+    if (!map.getBounds().pad(-0.3).contains(target)) {
+      map.panTo(target, { animate: true, duration: 0.6 });
+    }
+  }, [center, zoom, followGps, map]);
 
   useEffect(() => {
     const invalidateMapSize = () => {
@@ -111,6 +166,79 @@ export function getDistance(node1, node2) {
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
   return R * c;
+}
+
+/* =========================================================
+   LOCAL PLANAR PROJECTION
+
+   Over a campus-sized area (a few hundred metres) we can
+   treat lat/lng as a flat metre grid. Good enough for
+   snapping a GPS fix onto the route.
+========================================================= */
+
+const METERS_PER_DEG_LAT = 111320;
+
+function metersPerDegLng(lat) {
+  return METERS_PER_DEG_LAT * Math.cos((lat * Math.PI) / 180);
+}
+
+function toMeters(point, origin) {
+  return {
+    x: (point[1] - origin[1]) * metersPerDegLng(origin[0]),
+    y: (point[0] - origin[0]) * METERS_PER_DEG_LAT,
+  };
+}
+
+/* Snap a position onto the closest point of a polyline.
+   Returns which segment it landed on, how far off-route it
+   is, and how far along the route it has travelled. */
+function projectOntoRoute(position, routePoints) {
+  if (!isLatLngPair(position) || !routePoints || routePoints.length < 2) {
+    return null;
+  }
+
+  const origin = routePoints[0];
+
+  const target = toMeters(position, origin);
+
+  let best = null;
+  let distanceAlong = 0;
+
+  for (let i = 0; i < routePoints.length - 1; i++) {
+    const a = toMeters(routePoints[i], origin);
+    const b = toMeters(routePoints[i + 1], origin);
+
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+
+    const segmentLength = Math.hypot(dx, dy);
+
+    // Clamp the projection to the segment so the fix snaps to an
+    // endpoint rather than to an imaginary extension of the path.
+    let t = 0;
+
+    if (segmentLength > 0) {
+      t = ((target.x - a.x) * dx + (target.y - a.y) * dy) / (segmentLength * segmentLength);
+      t = Math.max(0, Math.min(1, t));
+    }
+
+    const snappedX = a.x + dx * t;
+    const snappedY = a.y + dy * t;
+
+    const offRoute = Math.hypot(target.x - snappedX, target.y - snappedY);
+
+    if (best === null || offRoute < best.offRoute) {
+      best = {
+        segmentIndex: i,
+        offRoute,
+        distanceAlong: distanceAlong + segmentLength * t,
+      };
+    }
+
+    distanceAlong += segmentLength;
+  }
+
+  return best ? { ...best, routeLength: distanceAlong } : null;
 }
 
 /* =========================================================
@@ -310,6 +438,20 @@ function generateTurnByTurn(path) {
 }
 
 /* =========================================================
+   WALK SIMULATION TUNING
+========================================================= */
+
+const SIM_WALK_SPEED_MPS = 1.4;
+
+// A campus route is only 150-250m. At true walking pace the demo would
+// run for two or three minutes, so play it back faster.
+const SIM_TIME_SCALE = 5;
+
+const SIM_TICK_MS = 100;
+
+const SIM_SPEED_LABEL = `1.4 m/s (Walking · ${SIM_TIME_SCALE}× demo)`;
+
+/* =========================================================
    NAVIGATION PANEL
 ========================================================= */
 
@@ -323,7 +465,9 @@ export default function NavigationPanel({
      MAP STATE
   ------------------------------------------------------- */
 
-  const defaultCenter = [5.602, -0.2285];
+  // Real centroid of GCTU's Tesano campus boundary (see CAMPUS_BOUNDARY in
+  // buildings.js) - the old value was ~800m from the actual campus.
+  const defaultCenter = [5.5966, -0.2234];
 
   const [mapViewStyle, setMapViewStyle] = useState("leaflet");
 
@@ -365,6 +509,12 @@ export default function NavigationPanel({
 
   const [gpsCoordinates, setGpsCoordinates] = useState(defaultCenter);
 
+  const [gpsAccuracy, setGpsAccuracy] = useState(null);
+
+  const [gpsOffRoute, setGpsOffRoute] = useState(null);
+
+  const [gpsRemaining, setGpsRemaining] = useState(null);
+
   /* -------------------------------------------------------
      PANEL STATE
   ------------------------------------------------------- */
@@ -378,6 +528,13 @@ export default function NavigationPanel({
   const simIntervalRef = useRef(null);
 
   const realGpsWatchRef = useRef(null);
+
+  // The geolocation callback is registered once but the route can change
+  // underneath it, so read the route through a ref rather than closing
+  // over the value from the render that started the watch.
+  const routePointsRef = useRef([]);
+
+  const stepsRef = useRef([]);
 
   /* =======================================================
      ONLINE / OFFLINE
@@ -451,20 +608,34 @@ export default function NavigationPanel({
 
     const result = findDijkstraPath(startId, endId);
 
+    const turnByTurn = generateTurnByTurn(result.path);
+
     setShortestPath(result.path);
 
     setTotalDistance(result.distance);
 
-    setSteps(generateTurnByTurn(result.path));
+    setSteps(turnByTurn);
 
-    if (result.path.length > 0) {
+    routePointsRef.current = result.path
+      .map((nodeId) => {
+        const node = GRAPH_NODES[nodeId];
+
+        return node ? [node.lat, node.lng] : null;
+      })
+      .filter(Boolean);
+
+    stepsRef.current = turnByTurn;
+
+    // While tracking, the map centre belongs to the GPS feed - jumping it
+    // back to the route's start node would yank the view off the user.
+    if (result.path.length > 0 && !gpsActive) {
       const startNode = GRAPH_NODES[result.path[0]];
 
       if (startNode) {
         setMapCenter([startNode.lat, startNode.lng]);
       }
     }
-  }, [startId, endId]);
+  }, [startId, endId, gpsActive]);
 
   /* =======================================================
      CLEANUP
@@ -528,6 +699,11 @@ export default function NavigationPanel({
       setRealGpsActive(false);
       setGpsActive(false);
 
+      setGpsAccuracy(null);
+      setGpsOffRoute(null);
+      setGpsRemaining(null);
+      setActiveStepIndex(0);
+
       const startNode = GRAPH_NODES[startId] || GRAPH_NODES.gate;
 
       if (startNode) {
@@ -539,6 +715,18 @@ export default function NavigationPanel({
 
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       alert("Your device or browser does not support GPS location services.");
+
+      return;
+    }
+
+    // The Geolocation API is gated behind a secure context. Over plain http
+    // on a LAN address the call fails silently on most mobile browsers, which
+    // looks exactly like "GPS is broken".
+    if (typeof window !== "undefined" && !window.isSecureContext) {
+      alert(
+        "GPS needs a secure connection. Open this page over https:// or on " +
+          "localhost - location will not work over a plain http:// address.",
+      );
 
       return;
     }
@@ -561,15 +749,62 @@ export default function NavigationPanel({
         setMapCenter(newCoordinates);
 
         setMapZoom(18);
+
+        setGpsAccuracy(Number.isFinite(accuracy) ? accuracy : null);
+
+        // Snap the fix onto the route so the turn list and floating guide
+        // advance in real GPS mode, not just in the walk demo.
+        const projection = projectOntoRoute(
+          newCoordinates,
+          routePointsRef.current,
+        );
+
+        if (!projection) {
+          setGpsOffRoute(null);
+          setGpsRemaining(null);
+
+          return;
+        }
+
+        setGpsOffRoute(projection.offRoute);
+
+        setGpsRemaining(
+          Math.max(0, projection.routeLength - projection.distanceAlong),
+        );
+
+        const stepCount = stepsRef.current.length;
+
+        if (stepCount > 0) {
+          setActiveStepIndex(Math.min(projection.segmentIndex, stepCount - 1));
+        }
       },
 
       (error) => {
         console.error("GPS Watch error:", error);
 
-        alert(`Could not read device GPS: ${error.message}`);
+        // Only treat permission denial as fatal. POSITION_UNAVAILABLE (2)
+        // and TIMEOUT (3) are often transient - watchPosition keeps
+        // retrying on its own, so don't kill tracking state for those.
+        if (error.code === error.PERMISSION_DENIED) {
+          alert(
+            `Location permission denied: ${
+              error.message || "Please allow location access and try again."
+            }`,
+          );
 
-        setRealGpsActive(false);
-        setGpsActive(false);
+          if (realGpsWatchRef.current !== null) {
+            navigator.geolocation.clearWatch(realGpsWatchRef.current);
+            realGpsWatchRef.current = null;
+          }
+
+          setRealGpsActive(false);
+          setGpsActive(false);
+        } else {
+          console.warn(
+            "Transient GPS error, still tracking:",
+            error.message || error.code,
+          );
+        }
       },
 
       {
@@ -630,37 +865,69 @@ export default function NavigationPanel({
 
     setMapCenter([firstNode.lat, firstNode.lng]);
 
-    let stepIndex = 0;
-    let remainingDistance = totalDistance;
+    /* -----------------------------------------------------
+       Build the route geometry once, then walk along it.
+
+       The previous version jumped straight from node to node
+       every 2.5s. On a route with four or five nodes that is
+       a handful of teleports over a ten second window - it
+       reads as "nothing is moving". Interpolating along each
+       segment produces continuous motion instead.
+    ----------------------------------------------------- */
+
+    const routeNodes = shortestPath
+      .map((nodeId) => GRAPH_NODES[nodeId])
+      .filter(Boolean);
+
+    if (routeNodes.length < 2) {
+      return;
+    }
+
+    const segments = [];
+
+    let routeLength = 0;
+
+    for (let i = 0; i < routeNodes.length - 1; i++) {
+      const length = getDistance(routeNodes[i], routeNodes[i + 1]);
+
+      segments.push({
+        from: routeNodes[i],
+        to: routeNodes[i + 1],
+        length,
+        startsAt: routeLength,
+      });
+
+      routeLength += length;
+    }
 
     setSimState({
       nodeId: shortestPath[0],
       name: firstNode.name,
-      speed: "1.4 m/s (Walking)",
-      remainingDist: Math.round(remainingDistance),
+      speed: SIM_SPEED_LABEL,
+      remainingDist: Math.round(routeLength),
       status: "Starting simulation...",
     });
 
-    simIntervalRef.current = setInterval(() => {
-      stepIndex++;
+    let traveled = 0;
 
-      if (stepIndex >= shortestPath.length) {
+    simIntervalRef.current = setInterval(() => {
+      traveled += (SIM_WALK_SPEED_MPS * SIM_TIME_SCALE * SIM_TICK_MS) / 1000;
+
+      if (traveled >= routeLength) {
         if (simIntervalRef.current) {
           clearInterval(simIntervalRef.current);
 
           simIntervalRef.current = null;
         }
 
-        const destinationId = shortestPath[shortestPath.length - 1];
-
-        const destinationNode = GRAPH_NODES[destinationId];
+        const destinationNode = routeNodes[routeNodes.length - 1];
 
         setGpsCoordinates([destinationNode.lat, destinationNode.lng]);
 
         setMapCenter([destinationNode.lat, destinationNode.lng]);
 
         setSimState({
-          nodeId: destinationId,
+          nodeId: destinationNode.id,
           name: destinationNode.name,
           speed: "0 m/s (Idle)",
           remainingDist: 0,
@@ -684,32 +951,44 @@ export default function NavigationPanel({
         return;
       }
 
-      const nextNode = GRAPH_NODES[shortestPath[stepIndex]];
+      let segmentIndex = segments.length - 1;
 
-      const previousNode = GRAPH_NODES[shortestPath[stepIndex - 1]];
-
-      if (!nextNode || !previousNode) {
-        return;
+      for (let i = 0; i < segments.length; i++) {
+        if (traveled < segments[i].startsAt + segments[i].length) {
+          segmentIndex = i;
+          break;
+        }
       }
 
-      const sectionDistance = getDistance(previousNode, nextNode);
+      const segment = segments[segmentIndex];
 
-      remainingDistance = Math.max(0, remainingDistance - sectionDistance);
+      const progress =
+        segment.length > 0
+          ? (traveled - segment.startsAt) / segment.length
+          : 1;
 
-      setGpsCoordinates([nextNode.lat, nextNode.lng]);
+      const lat =
+        segment.from.lat + (segment.to.lat - segment.from.lat) * progress;
 
-      setMapCenter([nextNode.lat, nextNode.lng]);
+      const lng =
+        segment.from.lng + (segment.to.lng - segment.from.lng) * progress;
 
-      setActiveStepIndex(stepIndex - 1);
+      setGpsCoordinates([lat, lng]);
+
+      setMapCenter([lat, lng]);
+
+      setActiveStepIndex(segmentIndex);
 
       setSimState({
-        nodeId: nextNode.id,
-        name: nextNode.name,
-        speed: "1.4 m/s (Walking)",
-        remainingDist: Math.round(remainingDistance),
-        status: `Passing: ${nextNode.name}`,
+        // The node we are currently walking away from, so the walk log
+        // highlights the step being performed rather than the next one.
+        nodeId: segment.from.id,
+        name: segment.to.name,
+        speed: SIM_SPEED_LABEL,
+        remainingDist: Math.round(Math.max(0, routeLength - traveled)),
+        status: `Heading to: ${segment.to.name}`,
       });
-    }, 2500);
+    }, SIM_TICK_MS);
   };
 
   /* =======================================================
@@ -717,11 +996,13 @@ export default function NavigationPanel({
   ======================================================= */
 
   const mapToSvg = (lat, lng) => {
-    const minLat = 5.6006;
-    const maxLat = 5.6027;
+    // Padded bounding box around the real campus graph (buildings +
+    // junctions + gate) - see CAMPUS_BOUNDARY in buildings.js.
+    const minLat = 5.5949;
+    const maxLat = 5.5975;
 
-    const minLng = -0.2294;
-    const maxLng = -0.2276;
+    const minLng = -0.2245;
+    const maxLng = -0.2220;
 
     const x = ((lng - minLng) / (maxLng - minLng)) * 100;
 
@@ -887,6 +1168,13 @@ export default function NavigationPanel({
       return [node.lat, node.lng];
     })
     .filter(Boolean);
+
+  const routeKey = shortestPath.join(">");
+
+  // How far the live fix is from the campus graph. A huge number means the
+  // device simply is not on campus, which is worth saying out loud rather
+  // than silently flying the map to another part of the country.
+  const isFarFromCampus = gpsOffRoute !== null && gpsOffRoute > 300;
 
   /* =======================================================
      RENDER
@@ -1064,7 +1352,7 @@ export default function NavigationPanel({
                   </button>
                 </div>
 
-                {realGpsActive && (
+                {realGpsActive && !isFarFromCampus && (
                   <div className="real-gps-notice">
                     <span className="real-gps-notice-title">
                       📡 Live GPS Active:
@@ -1072,6 +1360,22 @@ export default function NavigationPanel({
                     Your device GPS is being monitored. Open this page on a
                     phone outdoors and move around to see the blue marker
                     update.
+                  </div>
+                )}
+
+                {realGpsActive && isFarFromCampus && (
+                  <div className="real-gps-notice">
+                    <span className="real-gps-notice-title">
+                      ⚠️ You are not on campus:
+                    </span>{" "}
+                    Your device is about{" "}
+                    {gpsOffRoute > 1000
+                      ? `${(gpsOffRoute / 1000).toFixed(1)}km`
+                      : `${Math.round(gpsOffRoute)}m`}{" "}
+                    from this route, so the map has followed you away from
+                    GCTU. Route guidance only tracks properly while you are
+                    walking on campus - use Walk Demo to preview it from
+                    anywhere.
                   </div>
                 )}
               </div>
@@ -1180,7 +1484,7 @@ export default function NavigationPanel({
       <div className="map-view-panel" id="campus-leaflet-map-container">
         {/* FLOATING NAVIGATION GUIDE */}
 
-        {simActive && steps[activeStepIndex] && (
+        {gpsActive && steps[activeStepIndex] && (
           <div
             id="floating-navigation-guide"
             className="floating-navigation-guide"
@@ -1211,7 +1515,7 @@ export default function NavigationPanel({
 
         <div
           className={`map-style-toggle ${theme === "dark" ? "dark" : "light"} ${
-            simActive ? "shifted" : ""
+            gpsActive ? "shifted" : ""
           }`}
         >
           <button
@@ -1267,6 +1571,42 @@ export default function NavigationPanel({
               {gpsActive ? (simActive ? "MOVING" : "LIVE") : "STANDBY"}
             </span>
           </div>
+
+          {realGpsActive && (
+            <>
+              <div className="telemetry-row">
+                <span>Fix Accuracy:</span>
+
+                <span className="telemetry-val">
+                  {gpsAccuracy === null
+                    ? "waiting…"
+                    : `±${Math.round(gpsAccuracy)}m`}
+                </span>
+              </div>
+
+              <div className="telemetry-row">
+                <span>Off Route:</span>
+
+                <span className="telemetry-val">
+                  {gpsOffRoute === null
+                    ? "—"
+                    : gpsOffRoute > 1000
+                      ? `${(gpsOffRoute / 1000).toFixed(1)}km`
+                      : `${Math.round(gpsOffRoute)}m`}
+                </span>
+              </div>
+
+              <div className="telemetry-row">
+                <span>Remaining:</span>
+
+                <span className="telemetry-val">
+                  {gpsRemaining === null
+                    ? "—"
+                    : `${Math.round(gpsRemaining)}m`}
+                </span>
+              </div>
+            </>
+          )}
         </div>
 
         {/* ===================================================
@@ -1521,9 +1861,15 @@ export default function NavigationPanel({
               center={mapCenter}
               zoom={mapZoom}
               active={active}
+              routeKey={routeKey}
+              // Follow the marker during the walk demo too. Tying this to
+              // realGpsActive alone meant the demo fell through to the
+              // route-overview branch, which ignores the moving centre
+              // entirely.
+              followGps={gpsActive}
               fitPoints={
-                realGpsActive && polylinePositions.length > 1 && gpsCoordinates
-                  ? [...polylinePositions, gpsCoordinates]
+                !gpsActive && polylinePositions.length > 1
+                  ? polylinePositions
                   : null
               }
             />
@@ -1660,6 +2006,19 @@ export default function NavigationPanel({
             })}
 
             {/* LIVE GPS MARKER */}
+
+            {realGpsActive && gpsCoordinates && gpsAccuracy > 0 && (
+              <Circle
+                center={gpsCoordinates}
+                radius={gpsAccuracy}
+                pathOptions={{
+                  color: "#0066ff",
+                  weight: 1,
+                  fillColor: "#0066ff",
+                  fillOpacity: 0.12,
+                }}
+              />
+            )}
 
             {gpsActive && gpsCoordinates && (
               <Marker
