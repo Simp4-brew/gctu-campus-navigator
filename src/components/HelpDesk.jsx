@@ -69,7 +69,7 @@ export default function HelpDesk() {
   const [adminLoading, setAdminLoading] = useState(false);
   const [adminError, setAdminError] = useState("");
 
-  const API_BASE = "/api";
+  const API_BASE = `${import.meta.env.VITE_API_URL}/api`;
 
   // Load FAQs, contacts, and tickets from the API on mount
   useEffect(() => {
