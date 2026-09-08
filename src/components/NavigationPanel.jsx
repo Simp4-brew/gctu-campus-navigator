@@ -45,7 +45,14 @@ function isLatLngPair(value) {
   );
 }
 
-function MapController({ center, zoom, active, fitPoints, followGps, routeKey }) {
+function MapController({
+  center,
+  zoom,
+  active,
+  fitPoints,
+  followGps,
+  routeKey,
+}) {
   const map = useMap();
 
   const fittedRouteRef = useRef(null);
@@ -218,7 +225,9 @@ function projectOntoRoute(position, routePoints) {
     let t = 0;
 
     if (segmentLength > 0) {
-      t = ((target.x - a.x) * dx + (target.y - a.y) * dy) / (segmentLength * segmentLength);
+      t =
+        ((target.x - a.x) * dx + (target.y - a.y) * dy) /
+        (segmentLength * segmentLength);
       t = Math.max(0, Math.min(1, t));
     }
 
@@ -469,15 +478,9 @@ export default function NavigationPanel({
   // buildings.js) - the old value was ~800m from the actual campus.
   const defaultCenter = [5.5966, -0.2234];
 
-  const [mapViewStyle, setMapViewStyle] = useState("leaflet");
-
   const [mapCenter, setMapCenter] = useState(defaultCenter);
 
   const [mapZoom, setMapZoom] = useState(18);
-
-  const [isOnline, setIsOnline] = useState(
-    typeof navigator !== "undefined" ? navigator.onLine : true,
-  );
 
   /* -------------------------------------------------------
      ROUTE STATE
@@ -535,35 +538,6 @@ export default function NavigationPanel({
   const routePointsRef = useRef([]);
 
   const stepsRef = useRef([]);
-
-  /* =======================================================
-     ONLINE / OFFLINE
-  ======================================================= */
-
-  useEffect(() => {
-    const handleOnline = () => {
-      setIsOnline(true);
-    };
-
-    const handleOffline = () => {
-      setIsOnline(false);
-      setMapViewStyle("schematic");
-    };
-
-    if (typeof window !== "undefined") {
-      window.addEventListener("online", handleOnline);
-
-      window.addEventListener("offline", handleOffline);
-    }
-
-    return () => {
-      if (typeof window !== "undefined") {
-        window.removeEventListener("online", handleOnline);
-
-        window.removeEventListener("offline", handleOffline);
-      }
-    };
-  }, []);
 
   /* =======================================================
      PRESET DESTINATION
@@ -963,9 +937,7 @@ export default function NavigationPanel({
       const segment = segments[segmentIndex];
 
       const progress =
-        segment.length > 0
-          ? (traveled - segment.startsAt) / segment.length
-          : 1;
+        segment.length > 0 ? (traveled - segment.startsAt) / segment.length : 1;
 
       const lat =
         segment.from.lat + (segment.to.lat - segment.from.lat) * progress;
@@ -989,47 +961,6 @@ export default function NavigationPanel({
         status: `Heading to: ${segment.to.name}`,
       });
     }, SIM_TICK_MS);
-  };
-
-  /* =======================================================
-     SVG / OFFLINE MAP COORDINATES
-  ======================================================= */
-
-  const mapToSvg = (lat, lng) => {
-    // Padded bounding box around the real campus graph (buildings +
-    // junctions + gate) - see CAMPUS_BOUNDARY in buildings.js.
-    const minLat = 5.5949;
-    const maxLat = 5.5975;
-
-    const minLng = -0.2245;
-    const maxLng = -0.2220;
-
-    const x = ((lng - minLng) / (maxLng - minLng)) * 100;
-
-    const y = 100 - ((lat - minLat) / (maxLat - minLat)) * 100;
-
-    return {
-      x: x.toFixed(3),
-      y: y.toFixed(3),
-    };
-  };
-
-  const getSvgCoordinates = (nodeId) => {
-    const node = GRAPH_NODES[nodeId];
-
-    if (!node) {
-      return {
-        x: 50,
-        y: 50,
-      };
-    }
-
-    const position = mapToSvg(node.lat, node.lng);
-
-    return {
-      x: parseFloat(position.x),
-      y: parseFloat(position.y),
-    };
   };
 
   /* =======================================================
@@ -1372,10 +1303,9 @@ export default function NavigationPanel({
                     {gpsOffRoute > 1000
                       ? `${(gpsOffRoute / 1000).toFixed(1)}km`
                       : `${Math.round(gpsOffRoute)}m`}{" "}
-                    from this route, so the map has followed you away from
-                    GCTU. Route guidance only tracks properly while you are
-                    walking on campus - use Walk Demo to preview it from
-                    anywhere.
+                    from this route, so the map has followed you away from GCTU.
+                    Route guidance only tracks properly while you are walking on
+                    campus - use Walk Demo to preview it from anywhere.
                   </div>
                 )}
               </div>
@@ -1511,42 +1441,6 @@ export default function NavigationPanel({
           </div>
         )}
 
-        {/* MAP STYLE TOGGLE */}
-
-        <div
-          className={`map-style-toggle ${theme === "dark" ? "dark" : "light"} ${
-            gpsActive ? "shifted" : ""
-          }`}
-        >
-          <button
-            type="button"
-            onClick={() => setMapViewStyle("leaflet")}
-            className={`map-style-btn ${
-              mapViewStyle === "leaflet" ? "active" : ""
-            } ${theme === "dark" ? "dark" : "light"}`}
-          >
-            🗺️ Live Map
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setMapViewStyle("schematic")}
-            className={`map-style-btn ${
-              mapViewStyle === "schematic" ? "active" : ""
-            } ${theme === "dark" ? "dark" : "light"}`}
-          >
-            📐 Blueprint
-          </button>
-        </div>
-
-        {/* OFFLINE */}
-
-        {!isOnline && (
-          <div className="offline-badge">
-            📡 Offline Mode: GCTU local blueprint loaded
-          </div>
-        )}
-
         {/* TELEMETRY */}
 
         <div className="gps-map-telemetry" id="gps-mapping-telemetry-panel">
@@ -1600,447 +1494,210 @@ export default function NavigationPanel({
                 <span>Remaining:</span>
 
                 <span className="telemetry-val">
-                  {gpsRemaining === null
-                    ? "—"
-                    : `${Math.round(gpsRemaining)}m`}
+                  {gpsRemaining === null ? "—" : `${Math.round(gpsRemaining)}m`}
                 </span>
               </div>
             </>
           )}
         </div>
 
-        {/* ===================================================
-            OFFLINE SCHEMATIC
-        =================================================== */}
+        {/* =================================================
+           LEAFLET MAP
+        ================================================= */}
 
-        {mapViewStyle === "schematic" ? (
-          <div
-            className={`schematic-container ${
-              theme === "dark" ? "dark" : "light"
-            }`}
-          >
-            <div
-              className={`schematic-grid-bg ${
-                theme === "dark" ? "dark" : "light"
-              }`}
-            />
+        <MapContainer
+          center={defaultCenter}
+          zoom={18}
+          scrollWheelZoom={true}
+          className="leaflet-map-fill"
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
+            url={
+              theme === "dark"
+                ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+            }
+          />
 
-            <svg
-              viewBox="0 0 100 100"
-              preserveAspectRatio="none"
-              className="schematic-svg"
-            >
-              {/* GRAPH EDGES */}
+          <MapController
+            center={mapCenter}
+            zoom={mapZoom}
+            active={active}
+            routeKey={routeKey}
+            // Follow the marker during the walk demo too. Tying this to
+            // realGpsActive alone meant the demo fell through to the
+            // route-overview branch, which ignores the moving centre
+            // entirely.
+            followGps={gpsActive}
+            fitPoints={
+              !gpsActive && polylinePositions.length > 1
+                ? polylinePositions
+                : null
+            }
+          />
 
-              {GRAPH_EDGES.map((edge, index) => {
-                const from = getSvgCoordinates(edge.from);
+          {/* ROUTE SHADOW */}
 
-                const to = getSvgCoordinates(edge.to);
+          {polylinePositions.length > 1 && (
+            <>
+              <Polyline
+                positions={polylinePositions}
+                color="#000000"
+                weight={9}
+                opacity={0.16}
+                lineCap="round"
+                lineJoin="round"
+              />
 
-                return (
-                  <line
-                    key={`sch-edge-${index}`}
-                    x1={`${from.x}%`}
-                    y1={`${from.y}%`}
-                    x2={`${to.x}%`}
-                    y2={`${to.y}%`}
-                    className={`schematic-edge ${
-                      theme === "dark" ? "dark" : "light"
-                    }`}
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                    strokeDasharray="1,1"
-                  />
-                );
-              })}
+              <Polyline
+                positions={polylinePositions}
+                color="#0055FF"
+                weight={5}
+                opacity={0.95}
+                lineCap="round"
+                lineJoin="round"
+              />
+            </>
+          )}
 
-              {/* ROUTE */}
+          {/* DISTANCE BADGE */}
 
-              {shortestPath.length > 1 &&
-                shortestPath.map((nodeId, index) => {
-                  if (index === shortestPath.length - 1) {
-                    return null;
-                  }
-
-                  const from = getSvgCoordinates(nodeId);
-
-                  const to = getSvgCoordinates(shortestPath[index + 1]);
-
-                  return (
-                    <g key={`sch-route-${index}`}>
-                      <line
-                        x1={`${from.x}%`}
-                        y1={`${from.y}%`}
-                        x2={`${to.x}%`}
-                        y2={`${to.y}%`}
-                        className="schematic-route-halo"
-                        strokeWidth="3.2"
-                        strokeLinecap="round"
-                      />
-
-                      <line
-                        x1={`${from.x}%`}
-                        y1={`${from.y}%`}
-                        x2={`${to.x}%`}
-                        y2={`${to.y}%`}
-                        className="schematic-route-core"
-                        strokeWidth="1.6"
-                        strokeLinecap="round"
-                      />
-                    </g>
-                  );
-                })}
-
-              {/* JUNCTIONS */}
-
-              {Object.keys(GRAPH_NODES).map((id) => {
-                const node = GRAPH_NODES[id];
-
-                if (node.type !== "junction") {
-                  return null;
-                }
-
-                const position = getSvgCoordinates(id);
-
-                return (
-                  <circle
-                    key={`sch-junc-${id}`}
-                    cx={`${position.x}%`}
-                    cy={`${position.y}%`}
-                    r="1.2"
-                    className={`schematic-junction ${
-                      theme === "dark" ? "dark" : "light"
-                    }`}
-                  />
-                );
-              })}
-
-              {/* GPS */}
-
-              {gpsActive &&
-                gpsCoordinates &&
-                (() => {
-                  const position = mapToSvg(
-                    gpsCoordinates[0],
-                    gpsCoordinates[1],
-                  );
-
-                  return (
-                    <g key="sch-gps-tracer">
-                      <circle
-                        cx={`${parseFloat(position.x)}%`}
-                        cy={`${parseFloat(position.y)}%`}
-                        r="4"
-                        className="schematic-gps-pulse animate-ping"
-                      />
-
-                      <circle
-                        cx={`${parseFloat(position.x)}%`}
-                        cy={`${parseFloat(position.y)}%`}
-                        r="1.8"
-                        className="schematic-gps-dot"
-                        strokeWidth="0.6"
-                      />
-                    </g>
-                  );
-                })()}
-            </svg>
-
-            {/* BUILDING LABELS */}
-
-            {Object.keys(GRAPH_NODES).map((id) => {
-              const node = GRAPH_NODES[id];
-
-              if (node.type !== "building" && id !== "gate") {
-                return null;
+          {polylinePositions.length > 1 && (
+            <Marker
+              position={
+                polylinePositions[Math.floor(polylinePositions.length / 2)]
               }
-
-              const position = getSvgCoordinates(id);
-
-              const isSelectedStart = id === startId;
-
-              const isSelectedEnd = id === endId;
-
-              const details = BUILDING_LIST.find(
-                (building) => building.id === id,
-              );
-
-              const emoji = id === "gate" ? "🚪" : details?.emoji || "🏫";
-
-              const shortName =
-                id === "gate" ? "Main Gate" : details?.shortName || node.name;
-
-              let bubbleClass = "schematic-bubble";
-
-              if (isSelectedStart) {
-                bubbleClass += " start";
-              } else if (isSelectedEnd) {
-                bubbleClass += " end";
-              } else {
-                bubbleClass += theme === "dark" ? " dark" : " light";
-              }
-
-              let labelClass = "schematic-bubble-label";
-
-              if (isSelectedStart) {
-                labelClass += " start";
-              } else if (isSelectedEnd) {
-                labelClass += theme === "dark" ? " end-dark" : " end-light";
-              } else {
-                labelClass += theme === "dark" ? " dark" : " light";
-              }
-
-              return (
-                <div
-                  key={`sch-bubble-${id}`}
-                  onClick={() => {
-                    if (simActive) {
-                      return;
-                    }
-
-                    setEndId(id);
-                  }}
-                  className={`schematic-bubble-wrapper ${
-                    simActive ? "disabled" : ""
-                  } ${isSelectedStart || isSelectedEnd ? "elevated" : ""}`}
-                  style={{
-                    left: `${position.x}%`,
-                    top: `${position.y}%`,
-                  }}
-                >
-                  <div
-                    className={`${bubbleClass} ${
-                      isSelectedStart || isSelectedEnd ? "large" : ""
-                    }`}
-                  >
-                    {emoji}
+              icon={L.divIcon({
+                html: `
+                  <div class="leaflet-distance-badge">
+                    ⚡ ${(totalDistance / 1000).toFixed(2)} km
+                    (${Math.round(totalDistance)}m)
                   </div>
+                `,
 
-                  <span
-                    className={`${labelClass} ${
-                      theme === "dark" ? "bg-dark" : "bg-light"
-                    } ${isSelectedStart || isSelectedEnd ? "bold" : ""}`}
-                  >
-                    {shortName}
-                  </span>
+                className: "custom-path-midpoint-badge",
+
+                iconSize: [110, 24],
+
+                iconAnchor: [55, 12],
+              })}
+            />
+          )}
+
+          {/* START MARKER */}
+
+          {polylinePositions.length > 0 && GRAPH_NODES[startId] && (
+            <Marker
+              position={polylinePositions[0]}
+              icon={getStartLIcon(GRAPH_NODES[startId].name)}
+              zIndexOffset={100}
+            />
+          )}
+
+          {/* DESTINATION MARKER */}
+
+          {polylinePositions.length > 0 && GRAPH_NODES[endId] && (
+            <Marker
+              position={polylinePositions[polylinePositions.length - 1]}
+              icon={getEndLIcon(GRAPH_NODES[endId].name)}
+              zIndexOffset={200}
+            />
+          )}
+
+          {/* MAIN GATE */}
+
+          {startId !== "gate" && endId !== "gate" && GRAPH_NODES.gate && (
+            <Marker
+              position={[GRAPH_NODES.gate.lat, GRAPH_NODES.gate.lng]}
+              icon={getGateLIcon()}
+            >
+              <Popup>
+                <div className="popup-title">🚪 GCTU Main Campus Entrance</div>
+
+                <div className="popup-subtitle">
+                  Entrance along J.A. Kufuor Avenue, Tesano, Accra.
                 </div>
-              );
-            })}
+              </Popup>
+            </Marker>
+          )}
 
-            <div
-              className={`schematic-status-bar ${
-                theme === "dark" ? "dark" : "light"
-              }`}
+          {/* BUILDINGS */}
+
+          {BUILDING_LIST.map((building) => {
+            if (building.id === startId || building.id === endId) {
+              return null;
+            }
+
+            return (
+              <Marker
+                key={building.id}
+                position={[building.lat, building.lng]}
+                icon={getMinimalBuildingLIcon(building.emoji)}
+              >
+                <Popup>
+                  <div className="popup-building-content">
+                    <span className="popup-building-name">{building.name}</span>
+
+                    <span className="category-badge popup-category-badge">
+                      {building.category}
+                    </span>
+
+                    <p className="popup-building-desc">{building.desc}</p>
+
+                    <button
+                      type="button"
+                      className="popup-set-destination-btn"
+                      onClick={() => {
+                        if (simActive) {
+                          return;
+                        }
+
+                        setEndId(building.id);
+                      }}
+                    >
+                      Set Destination
+                    </button>
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
+
+          {/* LIVE GPS MARKER */}
+
+          {realGpsActive && gpsCoordinates && gpsAccuracy > 0 && (
+            <Circle
+              center={gpsCoordinates}
+              radius={gpsAccuracy}
+              pathOptions={{
+                color: "#0066ff",
+                weight: 1,
+                fillColor: "#0066ff",
+                fillOpacity: 0.12,
+              }}
+            />
+          )}
+
+          {gpsActive && gpsCoordinates && (
+            <Marker
+              position={gpsCoordinates}
+              icon={getGPSLIcon()}
+              zIndexOffset={500}
             >
-              <span className="schematic-status-dot" />
+              <Popup>
+                <div className="popup-gps-title">
+                  📡 {simActive ? "Walking simulation GPS" : "Live device GPS"}
+                </div>
 
-              <strong>Offline-Ready Blueprint</strong>
-            </div>
-          </div>
-        ) : (
-          /* =================================================
-             LEAFLET MAP
-          ================================================= */
-
-          <MapContainer
-            center={defaultCenter}
-            zoom={18}
-            scrollWheelZoom={true}
-            className="leaflet-map-fill"
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
-              url={
-                theme === "dark"
-                  ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                  : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-              }
-            />
-
-            <MapController
-              center={mapCenter}
-              zoom={mapZoom}
-              active={active}
-              routeKey={routeKey}
-              // Follow the marker during the walk demo too. Tying this to
-              // realGpsActive alone meant the demo fell through to the
-              // route-overview branch, which ignores the moving centre
-              // entirely.
-              followGps={gpsActive}
-              fitPoints={
-                !gpsActive && polylinePositions.length > 1
-                  ? polylinePositions
-                  : null
-              }
-            />
-
-            {/* ROUTE SHADOW */}
-
-            {polylinePositions.length > 1 && (
-              <>
-                <Polyline
-                  positions={polylinePositions}
-                  color="#000000"
-                  weight={9}
-                  opacity={0.16}
-                  lineCap="round"
-                  lineJoin="round"
-                />
-
-                <Polyline
-                  positions={polylinePositions}
-                  color="#0055FF"
-                  weight={5}
-                  opacity={0.95}
-                  lineCap="round"
-                  lineJoin="round"
-                />
-              </>
-            )}
-
-            {/* DISTANCE BADGE */}
-
-            {polylinePositions.length > 1 && (
-              <Marker
-                position={
-                  polylinePositions[Math.floor(polylinePositions.length / 2)]
-                }
-                icon={L.divIcon({
-                  html: `
-                    <div class="leaflet-distance-badge">
-                      ⚡ ${(totalDistance / 1000).toFixed(2)} km
-                      (${Math.round(totalDistance)}m)
-                    </div>
-                  `,
-
-                  className: "custom-path-midpoint-badge",
-
-                  iconSize: [110, 24],
-
-                  iconAnchor: [55, 12],
-                })}
-              />
-            )}
-
-            {/* START MARKER */}
-
-            {polylinePositions.length > 0 && GRAPH_NODES[startId] && (
-              <Marker
-                position={polylinePositions[0]}
-                icon={getStartLIcon(GRAPH_NODES[startId].name)}
-                zIndexOffset={100}
-              />
-            )}
-
-            {/* DESTINATION MARKER */}
-
-            {polylinePositions.length > 0 && GRAPH_NODES[endId] && (
-              <Marker
-                position={polylinePositions[polylinePositions.length - 1]}
-                icon={getEndLIcon(GRAPH_NODES[endId].name)}
-                zIndexOffset={200}
-              />
-            )}
-
-            {/* MAIN GATE */}
-
-            {startId !== "gate" && endId !== "gate" && GRAPH_NODES.gate && (
-              <Marker
-                position={[GRAPH_NODES.gate.lat, GRAPH_NODES.gate.lng]}
-                icon={getGateLIcon()}
-              >
-                <Popup>
-                  <div className="popup-title">
-                    🚪 GCTU Main Campus Entrance
-                  </div>
-
-                  <div className="popup-subtitle">
-                    Entrance along J.A. Kufuor Avenue, Tesano, Accra.
-                  </div>
-                </Popup>
-              </Marker>
-            )}
-
-            {/* BUILDINGS */}
-
-            {BUILDING_LIST.map((building) => {
-              if (building.id === startId || building.id === endId) {
-                return null;
-              }
-
-              return (
-                <Marker
-                  key={building.id}
-                  position={[building.lat, building.lng]}
-                  icon={getMinimalBuildingLIcon(building.emoji)}
-                >
-                  <Popup>
-                    <div className="popup-building-content">
-                      <span className="popup-building-name">
-                        {building.name}
-                      </span>
-
-                      <span className="category-badge popup-category-badge">
-                        {building.category}
-                      </span>
-
-                      <p className="popup-building-desc">{building.desc}</p>
-
-                      <button
-                        type="button"
-                        className="popup-set-destination-btn"
-                        onClick={() => {
-                          if (simActive) {
-                            return;
-                          }
-
-                          setEndId(building.id);
-                        }}
-                      >
-                        Set Destination
-                      </button>
-                    </div>
-                  </Popup>
-                </Marker>
-              );
-            })}
-
-            {/* LIVE GPS MARKER */}
-
-            {realGpsActive && gpsCoordinates && gpsAccuracy > 0 && (
-              <Circle
-                center={gpsCoordinates}
-                radius={gpsAccuracy}
-                pathOptions={{
-                  color: "#0066ff",
-                  weight: 1,
-                  fillColor: "#0066ff",
-                  fillOpacity: 0.12,
-                }}
-              />
-            )}
-
-            {gpsActive && gpsCoordinates && (
-              <Marker
-                position={gpsCoordinates}
-                icon={getGPSLIcon()}
-                zIndexOffset={500}
-              >
-                <Popup>
-                  <div className="popup-gps-title">
-                    📡{" "}
-                    {simActive ? "Walking simulation GPS" : "Live device GPS"}
-                  </div>
-
-                  <div className="popup-gps-coords">
-                    [{gpsCoordinates[0].toFixed(6)},{" "}
-                    {gpsCoordinates[1].toFixed(6)}]
-                  </div>
-                </Popup>
-              </Marker>
-            )}
-          </MapContainer>
-        )}
+                <div className="popup-gps-coords">
+                  [{gpsCoordinates[0].toFixed(6)},{" "}
+                  {gpsCoordinates[1].toFixed(6)}]
+                </div>
+              </Popup>
+            </Marker>
+          )}
+        </MapContainer>
       </div>
     </div>
   );
