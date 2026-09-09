@@ -17,7 +17,7 @@ export const BUILDING_LIST = [
       "Main student services registry point",
     ],
     image:
-      "https://upload.wikimedia.org/wikipedia/commons/3/3a/University_of_Ghana_Administration_Block_%281%29.jpg",
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTpBxy8n45i5wtu4lFCbirea__eB3yQbDVzOfd9E4VfAQ&s=10",
   },
   {
     id: "blockC",
@@ -34,7 +34,7 @@ export const BUILDING_LIST = [
       "Excellent acoustics for campus and cultural gatherings",
     ],
     image:
-      "https://upload.wikimedia.org/wikipedia/commons/e/e0/Great_Hall_of_the_University_of_Ghana.jpg",
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSU8hX7miQA0b-gGw7JYBHMKtvJsUfPvRoO4b25Pt4jGA&s=10",
   },
   {
     id: "blockB",
@@ -85,7 +85,7 @@ export const BUILDING_LIST = [
       "Features professional certification labs from Cisco and Huawei",
     ],
     image:
-      "https://upload.wikimedia.org/wikipedia/commons/c/cd/Computer_lab_at_Ashesi_University.jpg",
+      "https://site.gctu.edu.gh/wp-content/uploads/2022/05/focis-handing-over4.jpg",
   },
   {
     id: "eng",
@@ -102,7 +102,7 @@ export const BUILDING_LIST = [
       "Practical engineering workshop and fabrication yard",
     ],
     image:
-      "https://upload.wikimedia.org/wikipedia/commons/7/7b/Ashesi_Engineering_Building.jpg",
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSd5ef9Te-jJrC3cvRowo6EtERSG5RI3Frpv7Kjm4HvXQ&s=10",
   },
   {
     id: "hospital",
@@ -119,7 +119,7 @@ export const BUILDING_LIST = [
       "Free medical insurance cover scheme for all current students",
     ],
     image:
-      "https://upload.wikimedia.org/wikipedia/commons/9/90/Ridge_Hospital_Accra.jpg",
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQM57XxKPdyIi42DfU5za9pG6NXordI0vSwlNeSlRFeGw&s=10",
   },
   {
     id: "cafe",
@@ -136,7 +136,7 @@ export const BUILDING_LIST = [
       "Unrivaled social convergence center during midday breaks",
     ],
     image:
-      "https://upload.wikimedia.org/wikipedia/commons/b/b8/Unilag_Cafeteria_01.jpg",
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRzgBpBaK4q5Ws_U4_bRiIPVrnRsgYbMuiaY-9KLSEEMA&s=10",
   },
   {
     id: "onny_aud",
@@ -153,7 +153,7 @@ export const BUILDING_LIST = [
       "Regularly hosts tech pitch events and guest industry seminars",
     ],
     image:
-      "https://upload.wikimedia.org/wikipedia/commons/a/ab/International_Conference_Centre%2C_Accra.jpg",
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRemSr6aQOV81XDH3keirqeHybIa5XHqSwXEkx38PI8QA&s=10",
   },
   {
     id: "library",
@@ -170,7 +170,7 @@ export const BUILDING_LIST = [
       "Features quiet individual study space and dynamic collaborative rooms",
     ],
     image:
-      "https://upload.wikimedia.org/wikipedia/commons/e/ea/Balme_Library_of_the_University_of_Ghana.jpg",
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQOeHDcXUCIuBbwHAPguF814iFTZONukunJ1SaVOTJP6A&s=10",
   },
 ];
 
