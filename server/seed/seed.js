@@ -1,4 +1,3 @@
-// Run with: node server/seed/seed.js
 import "dotenv/config";
 import mongoose from "mongoose";
 import { connectDB } from "../db.js";
@@ -15,9 +14,6 @@ import {
   GRAPH_EDGES,
 } from "../../src/data/buildings.js";
 
-// Extra metadata layered on top of BUILDING_LIST (rooms + search aliases),
-// keyed by the building's existing `id` so coordinates/IDs stay in sync
-// with what NavigationPanel.jsx and CampusHome.jsx already expect.
 const BUILDING_EXTRAS = {
   admin: {
     aliases: ["Admin Block", "Administration"],
@@ -101,10 +97,7 @@ const BUILDING_EXTRAS = {
       },
     ],
   },
-  cafe: {
-    aliases: ["Cafeteria", "Dining Hall"],
-    rooms: [],
-  },
+  cafe: { aliases: ["Cafeteria", "Dining Hall"], rooms: [] },
   onny_aud: {
     aliases: ["Florence Onny Auditorium", "Florence Onny Hall"],
     rooms: [
@@ -132,7 +125,6 @@ const BUILDING_EXTRAS = {
   },
 };
 
-// Merge BUILDING_LIST (source of truth for ids/coords) with extras (rooms/aliases)
 const ENRICHED_BUILDINGS = BUILDING_LIST.map((b) => ({
   ...b,
   aliases: BUILDING_EXTRAS[b.id]?.aliases || [],
@@ -152,7 +144,7 @@ const FAQS = [
     category: "Health & Welfare",
     question: "Where is the School Clinic located and what are the hours?",
     answer:
-      "The School Clinic is located next to FOCIS, on the right side of the FOCIS faculty building. It operates 24/7 for emergencies, consultation, and dispensary services, and is completely free of charge upon presenting a valid student ID.",
+      "The School Hospital/Clinic is situated in the north sector, immediately adjacent to Classroom Block G (SGSR). It operates 24/7 for emergencies, consultation, and dispensary services, and is completely free of charge upon presenting a valid student ID.",
   },
   {
     faqId: "faq-portal",
@@ -200,8 +192,11 @@ const CONTACTS = [
   { dept: "School Clinic Emergency Line", phone: "+233 244 567 890" },
 ];
 
-async function seed() {
-  await connectDB();
+export async function seedDatabase() {
+  const alreadyConnected = mongoose.connection.readyState === 1;
+  if (!alreadyConnected) {
+    await connectDB();
+  }
 
   console.log("Clearing existing collections...");
   await Promise.all([
@@ -228,10 +223,13 @@ async function seed() {
   await Contact.insertMany(CONTACTS);
 
   console.log("Seed complete.");
-  await mongoose.connection.close();
 }
 
-seed().catch((err) => {
-  console.error("Seed failed:", err);
-  process.exit(1);
-});
+if (import.meta.url === `file://${process.argv[1]}`) {
+  seedDatabase()
+    .then(() => mongoose.connection.close())
+    .catch((err) => {
+      console.error("Seed failed:", err);
+      process.exit(1);
+    });
+}
