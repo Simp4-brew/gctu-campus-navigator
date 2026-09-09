@@ -25,8 +25,8 @@ export const BUILDING_LIST = [
     shortName: "Great Hall",
     category: "Academic",
     emoji: "🎓",
-    lat: 5.595549,
-    lng: -0.22394,
+    lat: 5.595541,
+    lng: -0.223642,
     desc: "A historic multipurpose hall hosting graduation ceremonies, matriculations, and major academic lectures.",
     facts: [
       "Seats up to 1,500 students and visitors",
@@ -76,8 +76,8 @@ export const BUILDING_LIST = [
     shortName: "FoCIS",
     category: "Faculty",
     emoji: "🖥",
-    lat: 5.596858,
-    lng: -0.223414,
+    lat: 5.595541,
+    lng: -0.223733,
     desc: "The premier faculty for Computer Science, Information Technology, and Software Engineering studies.",
     facts: [
       "Equipped with standard graphics and programming labs",
@@ -93,8 +93,8 @@ export const BUILDING_LIST = [
     shortName: "Engineering",
     category: "Faculty",
     emoji: "⚙️",
-    lat: 5.595611,
-    lng: -0.222984,
+    lat: 5.596133,
+    lng: -0.222994,
     desc: "Practical labs for telecommunications, electronics, microwave, and mobile engineering systems.",
     facts: [
       "Houses specialized mobile network testing simulators",
@@ -144,8 +144,8 @@ export const BUILDING_LIST = [
     shortName: "Auditorium",
     category: "Events",
     emoji: "🎭",
-    lat: 5.596194,
-    lng: -0.222937,
+    lat: 5.595879,
+    lng: -0.222871,
     desc: "A fully air-conditioned auditorium for lectures, seminars, and student association events.",
     facts: [
       "Fitted with state-of-the-art surround sound and projections",
@@ -161,8 +161,8 @@ export const BUILDING_LIST = [
     shortName: "School Library",
     category: "Academic",
     emoji: "📖",
-    lat: 5.596088,
-    lng: -0.223005,
+    lat: 5.596388,
+    lng: -0.2231,
     desc: "The digital and physical knowledge sanctuary of GCTU, housing over 50,000 tech books, journals, and silent collective research labs.",
     facts: [
       "Over 50,000 engineering and computer science science volumes",
@@ -177,15 +177,12 @@ export const BUILDING_LIST = [
 // Graph Nodes of GCTU Campus
 // Includes both building points and strategic path junctions for robust routing
 //
-// Coordinates below use real, OSM-verified positions for GCTU's actual
-// Tesano campus.
-//
-// UPDATE (defense-day fix): GRAPH_EDGES below were missing a direct
-// walkway connection between FoCIS and Block C, which are directly
-// walkable to each other on the ground (short 1-2 min walk), forcing
-// Dijkstra to route the long way around through cafe/junc_center instead
-// of the real short path. Added the missing direct edges below to match
-// what is actually walkable on campus.
+// UPDATE (defense-day fix): FoCIS, Block C, Florence Onny Auditorium,
+// Library, and Engineering coordinates below were replaced with real
+// Google Maps-verified positions after the previous estimated coordinates
+// caused inaccurate turn-by-turn directions. FoCIS and Block C are
+// confirmed to be directly adjacent (a genuine 1-2 min walk), which is
+// why a direct edge was added between them in GRAPH_EDGES below.
 export const GRAPH_NODES = {
   // Buildings
   admin: {
@@ -198,8 +195,8 @@ export const GRAPH_NODES = {
   blockC: {
     id: "blockC",
     name: "Classroom Block C",
-    lat: 5.595549,
-    lng: -0.22394,
+    lat: 5.595541,
+    lng: -0.223642,
     type: "building",
   },
   blockB: {
@@ -219,15 +216,15 @@ export const GRAPH_NODES = {
   focis: {
     id: "focis",
     name: "Faculty of Computing (FoCIS)",
-    lat: 5.596858,
-    lng: -0.223414,
+    lat: 5.595541,
+    lng: -0.223733,
     type: "building",
   },
   eng: {
     id: "eng",
     name: "Faculty of Engineering",
-    lat: 5.595611,
-    lng: -0.222984,
+    lat: 5.596133,
+    lng: -0.222994,
     type: "building",
   },
   hospital: {
@@ -247,15 +244,15 @@ export const GRAPH_NODES = {
   onny_aud: {
     id: "onny_aud",
     name: "Florence Onny Auditorium",
-    lat: 5.596194,
-    lng: -0.222937,
+    lat: 5.595879,
+    lng: -0.222871,
     type: "building",
   },
   library: {
     id: "library",
     name: "GCTU Central Library",
-    lat: 5.596088,
-    lng: -0.223005,
+    lat: 5.596388,
+    lng: -0.2231,
     type: "building",
   },
 
@@ -343,7 +340,7 @@ export const GRAPH_EDGES = [
   { from: "library", to: "blockC" },
   { from: "admin", to: "library" },
 
-  // Direct FoCIS <-> Block C walkway (verified on the ground)
+  // Direct FoCIS <-> Block C walkway (verified adjacent on Google Maps)
   { from: "focis", to: "blockC" },
 
   // Direct Hospital <-> western walkway junction
