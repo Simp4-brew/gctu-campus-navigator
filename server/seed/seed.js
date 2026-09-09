@@ -152,7 +152,7 @@ const FAQS = [
     category: "Health & Welfare",
     question: "Where is the School Clinic located and what are the hours?",
     answer:
-      "The School Hospital/Clinic is situated in the north sector, immediately adjacent to Classroom Block G (SGSR). It operates 24/7 for emergencies, consultation, and dispensary services, and is completely free of charge upon presenting a valid student ID.",
+      "The School Clinic is located next to FOCIS, on the right side of the FOCIS faculty building. It operates 24/7 for emergencies, consultation, and dispensary services, and is completely free of charge upon presenting a valid student ID.",
   },
   {
     faqId: "faq-portal",
