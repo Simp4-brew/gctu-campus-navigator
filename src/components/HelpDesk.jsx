@@ -69,7 +69,10 @@ export default function HelpDesk() {
   const [adminLoading, setAdminLoading] = useState(false);
   const [adminError, setAdminError] = useState("");
 
-  const API_BASE = `${import.meta.env.VITE_API_URL}/api`;
+  // Same-origin by default: the Vite dev server proxies /api to the Express
+  // server (see vite.config.ts), and a built app is served alongside it.
+  // VITE_API_URL only needs setting when the API lives on another host.
+  const API_BASE = `${import.meta.env.VITE_API_URL ?? ""}/api`;
 
   // Load FAQs, contacts, and tickets from the API on mount
   useEffect(() => {

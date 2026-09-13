@@ -41,6 +41,10 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// Basemap tile hosts. A miss on any of these falls back to the offline
+// blueprint placeholder rather than a broken image.
+const TILE_HOSTS = ['basemaps.cartocdn.com', 'tile.openstreetmap.org'];
+
 // Fetch: Serve from cache with Network Fallback
 self.addEventListener('fetch', (event) => {
   // Exclude non-GET requests or browser extensions (chrome-extension://)
@@ -73,8 +77,10 @@ self.addEventListener('fetch', (event) => {
       }).catch((err) => {
         // Fallback for when offline and resource not cached
         console.log('[Service Worker] Fetch failed, network offline', err);
-        // If it's a tile image, we can return a local empty SVG or similar placeholder
-        if (event.request.url.includes('tile.openstreetmap.org')) {
+        // If it's a tile image, we can return a local empty SVG or similar placeholder.
+        // NavigationPanel draws its basemap from CARTO, not OSM directly, so the
+        // placeholder has to match the host the map actually requests.
+        if (TILE_HOSTS.some((host) => event.request.url.includes(host))) {
           return new Response(
             `<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" style="background:#f0eedb"><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" fill="#999" font-size="12">Map Offline</text></svg>`,
             { headers: { 'Content-Type': 'image/svg+xml' } }
