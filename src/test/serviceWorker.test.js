@@ -238,3 +238,29 @@ describe("Service worker install and API caching", () => {
     expect(response.body).toBe("cached faqs");
   });
 });
+
+describe("Service worker page freshness", () => {
+  it("serves the latest page from the network, so a new deploy shows on the next load", async () => {
+    const network = vi.fn(() => Promise.resolve(networkResponse("new deploy")));
+    const worker = loadServiceWorker({ network });
+    const request = { url: `${ORIGIN}/`, method: "GET", mode: "navigate" };
+
+    const cache = await worker.caches.open("gctu-navigator-v2");
+    await cache.put(request, networkResponse("old deploy"));
+
+    const response = await worker.dispatch("fetch", { request });
+
+    expect(response.body).toBe("new deploy");
+  });
+
+  it("falls back to the cached app shell for any page when offline", async () => {
+    const worker = loadServiceWorker({ network: offlineNetwork() });
+    await worker.dispatch("install", {});
+
+    const response = await worker.dispatch("fetch", {
+      request: { url: `${ORIGIN}/some/page`, method: "GET", mode: "navigate" },
+    });
+
+    expect(response).toBe("cached:/index.html");
+  });
+});

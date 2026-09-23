@@ -67,6 +67,22 @@ function networkFirst(request) {
   );
 }
 
+// Pages: latest from the network; offline, the cached copy of that page or
+// the cached app shell (every client-side URL loads the same app).
+function pageNetworkFirst(request) {
+  return fetch(request).then((networkResponse) => {
+    if (networkResponse.status === 200) {
+      const cacheCopy = networkResponse.clone();
+      caches.open(CACHE_NAME).then((cache) => cache.put(request, cacheCopy));
+    }
+    return networkResponse;
+  }).catch(() =>
+    caches.match(request)
+      .then((cachedPage) => cachedPage || caches.match('/index.html'))
+      .then((shell) => shell || offlineResponse())
+  );
+}
+
 // Fetch: Serve from cache with Network Fallback
 self.addEventListener('fetch', (event) => {
   // Exclude non-GET requests or browser extensions (chrome-extension://)
@@ -74,8 +90,20 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (new URL(event.request.url).pathname.startsWith('/api/')) {
+  const { pathname } = new URL(event.request.url);
+
+  if (pathname.startsWith('/api/')) {
     event.respondWith(networkFirst(event.request));
+    return;
+  }
+
+  // The page itself (index.html) is network-first too. Serving it from the
+  // cache meant a new deploy only appeared after two reloads: the first
+  // showed the old cached page (which loads the old build) while the new
+  // one downloaded. The hashed JS/CSS files it references never change, so
+  // those stay cache-first below.
+  if (event.request.mode === 'navigate' || pathname === '/' || pathname === '/index.html') {
+    event.respondWith(pageNetworkFirst(event.request));
     return;
   }
 
