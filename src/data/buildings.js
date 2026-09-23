@@ -110,8 +110,8 @@ export const BUILDING_LIST = [
     shortName: "Hospital",
     category: "Health",
     emoji: "🏥",
-    lat: 5.595541,
-    lng: -0.223506,
+    lat: 5.595754,
+    lng: -0.223656,
     desc: "24/7 campus clinic supplying outpatient treatments, wellness clinics, and emergency medical focus.",
     facts: [
       "Staffed with resident medical officers & nurse practitioners",
@@ -236,8 +236,8 @@ export const GRAPH_NODES = {
   hospital: {
     id: "hospital",
     name: "School Hospital",
-    lat: 5.595541,
-    lng: -0.223506,
+    lat: 5.595754,
+    lng: -0.223656,
     type: "building",
   },
   cafe: {
@@ -338,8 +338,9 @@ export const GRAPH_EDGES = [
   { from: "focis", to: "junc_east" },
   { from: "eng", to: "junc_east" },
   { from: "junc_east", to: "junc_sgsr" },
-  // The clinic is new (not on Google Maps) and sits right next to FoCIS
-  // on its east side, reached through FoCIS.
+  // The clinic is new (not on Google Maps) and sits right next to FoCIS,
+  // on the side facing COLT and the cafeteria. Coming from COLT past the
+  // cafeteria it is a sharp right at FoCIS.
   { from: "hospital", to: "focis" },
 
   { from: "cafe", to: "focis" },

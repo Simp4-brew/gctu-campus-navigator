@@ -109,12 +109,12 @@ describe("UT-01  Render the Live Map view with the default centre coordinates", 
 
 describe("UT-02  Compute route distance between two selected campus points", () => {
   // Expected value derived independently of getDistance: a 3D chord-to-arc
-  // calculation on the same 6371km sphere gives 40.1115m for
+  // calculation on the same 6371km sphere gives 27.4973m for
   // School Hospital -> Campus Cafeteria.
   it("returns the great-circle distance between two campus points", () => {
     const metres = getDistance(GRAPH_NODES.hospital, GRAPH_NODES.cafe);
 
-    expect(metres).toBeCloseTo(40.11, 1);
+    expect(metres).toBeCloseTo(27.5, 1);
   });
 
   it("computes the walking route distance for a selected start and destination", () => {
@@ -122,8 +122,8 @@ describe("UT-02  Compute route distance between two selected campus points", () 
 
     // School Hospital -> Classroom Block G (SGSR), along the campus path graph
     // (hospital > focis > cafe > eng > junc_sgsr > blockG), checked
-    // against an independent Dijkstra: 183.50m.
-    expect(route.distance).toBeCloseTo(183.5, 1);
+    // against an independent Dijkstra: 183.55m.
+    expect(route.distance).toBeCloseTo(183.55, 1);
     expect(route.path.length).toBeGreaterThan(1);
     expect(route.path[0]).toBe("hospital");
     expect(route.path[route.path.length - 1]).toBe("blockG");
@@ -415,5 +415,18 @@ describe("School Clinic next to FoCIS", () => {
 
     expect(route.path).toEqual(["blockC", "focis", "hospital"]);
     expect(route.distance).toBeLessThan(50);
+  });
+
+  it("tells walkers from COLT to make a sharp right at FoCIS for the clinic", () => {
+    renderPanel();
+
+    fireEvent.change(screen.getByLabelText(/start/i), { target: { value: "blockB" } });
+    fireEvent.change(screen.getByLabelText(/destination/i), { target: { value: "hospital" } });
+
+    expect(
+      screen.getByText(
+        "Make a sharp right turn at Faculty of Computing (FoCIS) toward School Hospital.",
+      ),
+    ).toBeInTheDocument();
   });
 });
