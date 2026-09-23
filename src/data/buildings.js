@@ -351,8 +351,8 @@ export const GRAPH_EDGES = [
   // Direct FoCIS <-> Block C walkway (verified adjacent on Google Maps)
   { from: "focis", to: "blockC" },
 
-  // Direct Hospital <-> western walkway junction
-  { from: "hospital", to: "junc_west" },
+  // No direct Hospital <-> western walkway link: from Block C people walk
+  // to the clinic through FoCIS (Block C -> FoCIS -> Clinic).
 
   // The Graduate block's entrance, off the walkway beside it.
   { from: "blockG", to: "junc_sgsr" },
