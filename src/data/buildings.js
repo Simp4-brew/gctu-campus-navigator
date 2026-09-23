@@ -127,8 +127,8 @@ export const BUILDING_LIST = [
     shortName: "Cafeteria",
     category: "Welfare",
     emoji: "🍽",
-    lat: 5.596141,
-    lng: -0.22314,
+    lat: 5.595898,
+    lng: -0.223454,
     desc: "Hearty campus diner serving traditional Ghanaian foods like Jollof, Fufu, Banku, and Waakye.",
     facts: [
       "Strict food safety and health certification credentials",
@@ -243,8 +243,8 @@ export const GRAPH_NODES = {
   cafe: {
     id: "cafe",
     name: "Campus Cafeteria",
-    lat: 5.596141,
-    lng: -0.22314,
+    lat: 5.595898,
+    lng: -0.223454,
     type: "building",
   },
 

@@ -109,12 +109,12 @@ describe("UT-01  Render the Live Map view with the default centre coordinates", 
 
 describe("UT-02  Compute route distance between two selected campus points", () => {
   // Expected value derived independently of getDistance: a 3D chord-to-arc
-  // calculation on the same 6371km sphere gives 78.0492m for
+  // calculation on the same 6371km sphere gives 40.1115m for
   // School Hospital -> Campus Cafeteria.
   it("returns the great-circle distance between two campus points", () => {
     const metres = getDistance(GRAPH_NODES.hospital, GRAPH_NODES.cafe);
 
-    expect(metres).toBeCloseTo(78.05, 1);
+    expect(metres).toBeCloseTo(40.11, 1);
   });
 
   it("computes the walking route distance for a selected start and destination", () => {
@@ -122,8 +122,8 @@ describe("UT-02  Compute route distance between two selected campus points", () 
 
     // School Hospital -> Classroom Block G (SGSR), along the campus path graph
     // (hospital > focis > cafe > eng > junc_sgsr > blockG), checked
-    // against an independent Dijkstra: 196.34m.
-    expect(Math.round(route.distance)).toBe(196);
+    // against an independent Dijkstra: 183.50m.
+    expect(route.distance).toBeCloseTo(183.5, 1);
     expect(route.path.length).toBeGreaterThan(1);
     expect(route.path[0]).toBe("hospital");
     expect(route.path[route.path.length - 1]).toBe("blockG");
