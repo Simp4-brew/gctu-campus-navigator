@@ -1,44 +1,34 @@
-import express from 'express';
-import Faq from '../models/Faq.js';
-import Contact from '../models/Contact.js';
+import express from "express";
+
+import Contact from "../models/Contact.js";
+import Faq from "../models/Faq.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
+import { textSearch } from "../utils/textSearch.js";
 
 const router = express.Router();
 
 // GET /api/faqs
-router.get('/faqs', async (req, res) => {
-  try {
-    const faqs = await Faq.find();
-    res.json(faqs);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+router.get(
+  "/faqs",
+  asyncHandler(async (req, res) => {
+    res.json(await Faq.find());
+  }),
+);
 
 // GET /api/faqs/search?q=wifi
-router.get('/faqs/search', async (req, res) => {
-  try {
-    const q = (req.query.q || '').trim();
-    if (!q) return res.json([]);
-
-    const results = await Faq.find(
-      { $text: { $search: q } },
-      { score: { $meta: 'textScore' } }
-    ).sort({ score: { $meta: 'textScore' } });
-
-    res.json(results);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+router.get(
+  "/faqs/search",
+  asyncHandler(async (req, res) => {
+    res.json(await textSearch(Faq, req.query.q));
+  }),
+);
 
 // GET /api/contacts
-router.get('/contacts', async (req, res) => {
-  try {
-    const contacts = await Contact.find();
-    res.json(contacts);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+router.get(
+  "/contacts",
+  asyncHandler(async (req, res) => {
+    res.json(await Contact.find());
+  }),
+);
 
 export default router;

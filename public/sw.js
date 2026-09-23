@@ -3,6 +3,8 @@ const CACHE_NAME = 'gctu-navigator-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
+  '/manifest.webmanifest',
+  '/icons/icon-192.png',
   '/src/main.jsx',
   '/src/App.jsx',
   '/src/index.css',
@@ -102,8 +104,7 @@ self.addEventListener('fetch', (event) => {
       }).catch((err) => {
         // Fallback for when offline and resource not cached
         console.log('[Service Worker] Fetch failed, network offline', err);
-        // NavigationPanel draws its basemap from CARTO, not OSM directly, so the
-        // placeholder has to match the host the map actually requests.
+        // Map tiles get a "Map Offline" placeholder instead of a broken image.
         if (TILE_HOSTS.some((host) => event.request.url.includes(host))) {
           return new Response(
             `<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" style="background:#f0eedb"><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" fill="#999" font-size="12">Map Offline</text></svg>`,

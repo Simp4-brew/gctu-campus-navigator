@@ -44,6 +44,9 @@ vi.mock("react-leaflet", () => {
       getZoom: () => 18,
       getCenter: () => ({ lat: 5.5966, lng: -0.2234 }),
       invalidateSize: vi.fn(),
+      // Used while following the walk demo's moving marker.
+      getBounds: () => ({ pad: () => ({ contains: () => true }) }),
+      panTo: vi.fn(),
     }),
   };
 });
@@ -215,5 +218,60 @@ describe("IT-03  Switching to the offline (blueprint) rendering mode keeps the s
     });
 
     expect(drawnRoute()).toEqual(routeWhileOnline);
+  });
+});
+
+/* =========================================================
+   Walk demo
+========================================================= */
+
+describe("Walk demo simulation", () => {
+  it("walks the selected route, locks the route controls, and arrives", async () => {
+    vi.useFakeTimers();
+
+    try {
+      renderPanel();
+
+      fireEvent.change(screen.getByLabelText(/start/i), { target: { value: "gate" } });
+      fireEvent.change(screen.getByLabelText(/destination/i), { target: { value: "admin" } });
+
+      fireEvent.click(screen.getByRole("button", { name: /walk demo/i }));
+
+      expect(screen.getByText(/active walking simulation/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /stop demo/i })).toBeInTheDocument();
+      // The route cannot change mid-walk.
+      expect(screen.getByLabelText(/start/i)).toBeDisabled();
+      expect(screen.getByLabelText(/destination/i)).toBeDisabled();
+      // The floating turn guide shows the current step.
+      expect(document.getElementById("floating-navigation-guide")).toBeInTheDocument();
+
+      // Gate -> Admin is ~62m at 7m/s of demo time.
+      await act(async () => {
+        vi.advanceTimersByTime(12000);
+      });
+
+      expect(screen.getByText(/arrived! welcome/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /walk demo/i })).toBeInTheDocument();
+      expect(screen.getByLabelText(/start/i)).not.toBeDisabled();
+      expect(document.getElementById("floating-navigation-guide")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("refuses to simulate when start and destination are the same", () => {
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+
+    renderPanel();
+
+    fireEvent.change(screen.getByLabelText(/start/i), { target: { value: "admin" } });
+    fireEvent.change(screen.getByLabelText(/destination/i), { target: { value: "admin" } });
+    fireEvent.click(screen.getByRole("button", { name: /walk demo/i }));
+
+    expect(alertSpy).toHaveBeenCalled();
+    expect(screen.queryByText(/active walking simulation/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/start/i)).not.toBeDisabled();
+
+    alertSpy.mockRestore();
   });
 });

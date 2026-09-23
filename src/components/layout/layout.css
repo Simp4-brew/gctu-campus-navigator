@@ -1,0 +1,71 @@
+/* App shell styles that used to be inline style={{}} props (including a
+   JavaScript onMouseEnter/onMouseLeave hover effect, now plain CSS). */
+
+.brand-logo-img {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--gctu-gold);
+  display: block;
+  flex-shrink: 0;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.theme-toggle-btn {
+  background: none;
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  cursor: pointer;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s;
+}
+
+.theme-toggle-btn:hover,
+.theme-toggle-btn:focus-visible {
+  border-color: var(--gctu-gold);
+}
+
+.theme-toggle-btn:focus-visible {
+  outline: 2px solid var(--gctu-gold);
+  outline-offset: 2px;
+}
+
+.theme-toggle-sun {
+  color: var(--gctu-gold);
+}
+
+/* Visible keyboard focus for the tab buttons. */
+.tab-btn:focus-visible,
+.mobile-nav-item:focus-visible {
+  outline: 2px solid var(--gctu-gold);
+  outline-offset: 2px;
+}
+
+/* Native controls (select menus, scrollbars, date pickers) follow the theme. */
+body.dark {
+  color-scheme: dark;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

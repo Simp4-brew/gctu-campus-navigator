@@ -1,0 +1,104 @@
+/* Help Desk styles that used to be inline style={{}} props. Inline
+   colours could not follow the dark theme; these can. */
+
+.help-intro {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.25rem;
+}
+
+.section-header.section-header--spaced {
+  margin-top: 0.5rem;
+}
+
+/* Faculty dropdown matches the text inputs' height. */
+.form-inner-input.form-select {
+  height: 38px;
+  padding: 0 0.5rem;
+  background-color: var(--surface);
+}
+
+.form-inner-input.form-textarea {
+  resize: none;
+}
+
+/* Admin sign-in card nested inside the request card. */
+.support-form-card.admin-card {
+  margin-top: 0.75rem;
+  border: 1px solid var(--border-color);
+}
+
+.admin-card .section-header {
+  margin-bottom: 0.3rem;
+}
+
+.admin-card .help-intro {
+  margin-bottom: 0.45rem;
+}
+
+.submit-support-btn.ticket-action-btn {
+  margin-top: 0.4rem;
+  padding: 0.35rem 0.6rem;
+  width: fit-content;
+}
+
+/* Dial buttons are tel: links. */
+a.dial-btn {
+  flex-shrink: 0;
+  text-decoration: none;
+}
+
+a.dial-btn:focus-visible {
+  outline: 2px solid var(--action-blue);
+  outline-offset: 2px;
+}
+
+/* ---------- Status banners (see components/ui/Banner.jsx) ---------- */
+
+.simulation-banner.banner-success,
+.simulation-banner.banner-error {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.simulation-banner.banner-success {
+  background-color: #e8f5e9;
+  border-left-color: #2e7d32;
+  color: #1b5e20;
+}
+
+.simulation-banner.banner-error {
+  background-color: #ffefef;
+  border-left-color: #c62828;
+  color: #8a1f1f;
+}
+
+/* The global dark rule repaints every .simulation-banner with the page
+   surface colour; keep the success/error tint readable instead. */
+body.dark .simulation-banner.banner-success {
+  background-color: rgba(46, 125, 50, 0.18) !important;
+  color: #a5d6a7;
+}
+
+body.dark .simulation-banner.banner-error {
+  background-color: rgba(198, 40, 40, 0.18) !important;
+  color: #ef9a9a;
+}
+
+/* ---------- Dark theme readability ----------
+   These texts are navy (--gulf-blue) in the global stylesheet, which is
+   near-invisible on the dark background; typed input text had no colour
+   at all and fell back to black. */
+
+body.dark .faq-trigger,
+body.dark .form-group label,
+body.dark .contact-dept,
+body.dark .ticket-subject {
+  color: var(--text-primary);
+}
+
+body.dark .form-inner-input {
+  color: var(--text-primary);
+}
