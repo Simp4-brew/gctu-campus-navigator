@@ -557,3 +557,23 @@ body.dark .swap-btn {
 .popup-inside-place:focus-visible {
   border-color: #05195e;
 }
+
+/* Minimised planner: the route summary shortens with "…" instead of
+   pushing the Expand button off the edge. */
+.panel-toggle-header-left,
+.panel-toggle-header-left > div {
+  min-width: 0;
+}
+
+.panel-toggle-subtitle {
+  display: block;
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.panel-toggle-btn {
+  flex-shrink: 0;
+  margin-left: 0.5rem;
+}

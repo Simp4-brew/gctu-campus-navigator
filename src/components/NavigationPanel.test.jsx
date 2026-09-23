@@ -377,3 +377,34 @@ describe("Spoken announcements", () => {
     }
   });
 });
+
+/* =========================================================
+   Minimise / expand the route planner
+========================================================= */
+
+describe("Route planner minimise and expand", () => {
+  it("minimises to a summary of the route and expands back to the full planner", () => {
+    renderPanel();
+
+    const toggle = screen.getByRole("button", { name: /minimize/i });
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.click(toggle);
+
+    // Minimised: the planner controls are gone, the route is summarised.
+    expect(screen.queryByLabelText(/destination/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Main Campus Gate → Faculty of Computing \(FoCIS\)/),
+    ).toBeInTheDocument();
+
+    const expand = screen.getByRole("button", { name: /expand/i });
+    expect(expand).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(expand);
+
+    // Expanded again: the route can be planned.
+    expect(screen.getByLabelText(/start/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/destination/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /minimize/i })).toBeInTheDocument();
+  });
+});

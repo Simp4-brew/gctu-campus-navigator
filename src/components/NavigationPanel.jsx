@@ -223,7 +223,7 @@ export default function NavigationPanel({
 
               {panelCollapsed && (
                 <span className="panel-toggle-subtitle">
-                  Tap to expand and set route
+                  {route.startName} → {route.endName} · tap to change
                 </span>
               )}
             </div>

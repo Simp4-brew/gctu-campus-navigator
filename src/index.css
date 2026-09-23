@@ -222,6 +222,7 @@ body {
   display: flex;
   flex-direction: column;
   padding-bottom: 64px; /* Space for mobile navigation bar */
+  padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
   width: 100%;
 }
 
@@ -249,6 +250,9 @@ body {
   left: 0;
   right: 0;
   height: 64px; /* h-16 */
+  /* Stay clear of the iPhone home indicator. */
+  height: calc(64px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   background-color: #05195E;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
@@ -833,7 +837,11 @@ body {
 
 /* Tab 2 - Navigate Section - Immersive Map Overlay Design (Uber/Google Maps style) */
 .navigate-container {
-  height: calc(100vh - 65px - 65px); /* Mobile heights */
+  height: calc(100vh - 65px - 65px); /* Fallback for older browsers */
+  /* dvh = the visible screen. On phones 100vh also counts the area behind
+     the browser's address bar, which pushed the bottom of this screen
+     (and the minimised route planner) behind the bottom nav bar. */
+  height: calc(100dvh - 65px - 65px - env(safe-area-inset-bottom, 0px));
   border-radius: 0;
   overflow: hidden;
   position: relative;
@@ -843,6 +851,7 @@ body {
 @media (min-width: 769px) {
   .navigate-container {
     height: calc(100vh - 65px); /* Desktop height */
+    height: calc(100dvh - 65px);
   }
 }
 
@@ -877,10 +886,13 @@ body {
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), max-height 0.4s ease;
 }
 
-/* Desktop Collapse logic */
+/* Desktop collapse: shrink to a compact card (just the header with its
+   Expand button), like a collapsed search box on Google Maps. Sliding the
+   panel off-screen left an unlabelled strip with the button cut off. */
 @media (min-width: 769px) {
   .nav-controls-panel.collapsed {
-    transform: translateX(-320px); /* Leaves a small, 60px clickable tab on the left edge */
+    bottom: auto;
+    max-height: none;
   }
 }
 
@@ -908,8 +920,7 @@ body {
 
   /* Mobile Collapse logic - slides down leaving only drag-bar and tidy header */
   .nav-controls-panel.collapsed {
-    transform: translateY(calc(100% - 70px));
-    max-height: 70px;
+    max-height: 80px;
   }
   
   /* Shift Leaflet zoom control slightly to not be covered */
@@ -924,10 +935,6 @@ body {
   .leaflet-left {
     left: 400px !important;
     transition: left 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-  .nav-controls-panel.collapsed ~ .map-view-panel .leaflet-left,
-  .nav-controls-panel.collapsed .leaflet-left {
-    left: 80px !important;
   }
 }
 
