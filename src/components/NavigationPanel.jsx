@@ -447,6 +447,25 @@ function generateTurnByTurn(path) {
 }
 
 /* =========================================================
+   LEAFLET ICON CACHE
+
+   react-leaflet calls setIcon() whenever a Marker's icon prop
+   changes identity. Building a fresh L.divIcon on each render
+   rebuilt every marker's DOM on every walk-demo tick (10x a
+   second), restarting the GPS pulse animation each time.
+========================================================= */
+
+const iconCache = new Map();
+
+function cachedDivIcon(key, options) {
+  if (!iconCache.has(key)) {
+    iconCache.set(key, L.divIcon(options));
+  }
+
+  return iconCache.get(key);
+}
+
+/* =========================================================
    WALK SIMULATION TUNING
 ========================================================= */
 
@@ -467,7 +486,6 @@ const SIM_SPEED_LABEL = `1.4 m/s (Walking · ${SIM_TIME_SCALE}× demo)`;
 export default function NavigationPanel({
   presetDestination,
   clearPresetDestination,
-  theme,
   active,
 }) {
   /* -------------------------------------------------------
@@ -539,6 +557,18 @@ export default function NavigationPanel({
 
   const stepsRef = useRef([]);
 
+  const stopSimulation = () => {
+    if (simIntervalRef.current) {
+      clearInterval(simIntervalRef.current);
+
+      simIntervalRef.current = null;
+    }
+
+    setSimActive(false);
+    setSimState(null);
+    setActiveStepIndex(0);
+  };
+
   /* =======================================================
      PRESET DESTINATION
   ======================================================= */
@@ -556,6 +586,13 @@ export default function NavigationPanel({
     );
 
     if (match) {
+      // The demo walks a route captured when it started. Changing the route
+      // underneath it would leave the marker walking a path no longer drawn.
+      if (simIntervalRef.current) {
+        stopSimulation();
+        setGpsActive(false);
+      }
+
       setEndId(match.id);
       setStartId("gate");
 
@@ -652,15 +689,7 @@ export default function NavigationPanel({
 
   const toggleRealGPS = () => {
     if (simActive) {
-      if (simIntervalRef.current) {
-        clearInterval(simIntervalRef.current);
-
-        simIntervalRef.current = null;
-      }
-
-      setSimActive(false);
-      setSimState(null);
-      setActiveStepIndex(0);
+      stopSimulation();
     }
 
     if (realGpsActive) {
@@ -805,31 +834,37 @@ export default function NavigationPanel({
     }
 
     if (simActive) {
-      if (simIntervalRef.current) {
-        clearInterval(simIntervalRef.current);
-
-        simIntervalRef.current = null;
-      }
-
-      setSimActive(false);
+      stopSimulation();
       setGpsActive(false);
-      setSimState(null);
-      setActiveStepIndex(0);
 
       return;
     }
 
-    if (shortestPath.length === 0) {
+    // Validate before flipping any state. A single-node route (start and
+    // destination the same) used to switch the demo on and then bail out
+    // without an interval, leaving it stuck "active" with the selects locked.
+    const routeNodes = shortestPath
+      .map((nodeId) => GRAPH_NODES[nodeId])
+      .filter(Boolean);
+
+    if (routeNodes.length === 0) {
       alert("No route is available to simulate.");
 
       return;
     }
 
-    const firstNode = GRAPH_NODES[shortestPath[0]];
+    if (routeNodes.length < 2) {
+      alert("You are already at your destination - pick a different one.");
 
-    if (!firstNode) {
       return;
     }
+
+    const firstNode = routeNodes[0];
+
+    // Clear any readouts left over from a live GPS session.
+    setGpsAccuracy(null);
+    setGpsOffRoute(null);
+    setGpsRemaining(null);
 
     setGpsActive(true);
     setSimActive(true);
@@ -848,14 +883,6 @@ export default function NavigationPanel({
        reads as "nothing is moving". Interpolating along each
        segment produces continuous motion instead.
     ----------------------------------------------------- */
-
-    const routeNodes = shortestPath
-      .map((nodeId) => GRAPH_NODES[nodeId])
-      .filter(Boolean);
-
-    if (routeNodes.length < 2) {
-      return;
-    }
 
     const segments = [];
 
@@ -968,7 +995,7 @@ export default function NavigationPanel({
   ======================================================= */
 
   const getStartLIcon = (name) => {
-    return L.divIcon({
+    return cachedDivIcon(`start:${name}`, {
       html: `
         <div class="leaflet-start-pin-wrapper">
           <div class="leaflet-start-pin-label">
@@ -986,7 +1013,7 @@ export default function NavigationPanel({
   };
 
   const getEndLIcon = (name) => {
-    return L.divIcon({
+    return cachedDivIcon(`end:${name}`, {
       html: `
         <div class="leaflet-end-pin-wrapper">
           <div class="leaflet-end-pin-label">
@@ -1004,7 +1031,7 @@ export default function NavigationPanel({
   };
 
   const getMinimalBuildingLIcon = (emoji) => {
-    return L.divIcon({
+    return cachedDivIcon(`building:${emoji}`, {
       html: `
           <div class="leaflet-minimal-building-icon">
             ${emoji}
@@ -1019,7 +1046,7 @@ export default function NavigationPanel({
   };
 
   const getGateLIcon = () => {
-    return L.divIcon({
+    return cachedDivIcon("gate", {
       html: `
         <div class="leaflet-gate-icon">
           🚪
@@ -1034,7 +1061,7 @@ export default function NavigationPanel({
   };
 
   const getGPSLIcon = () => {
-    return L.divIcon({
+    return cachedDivIcon("gps", {
       html: `
         <div class="leaflet-gps-marker-wrapper">
           <div class="leaflet-gps-marker-dot"></div>
@@ -1232,6 +1259,10 @@ export default function NavigationPanel({
                     }}
                     disabled={simActive}
                   >
+                    {/* Swapping a route that starts at the gate makes the gate
+                        the destination, so it has to be selectable here too. */}
+                    <option value="gate">🚪 Main Campus Gate</option>
+
                     {BUILDING_LIST.map((building) => (
                       <option key={building.id} value={building.id}>
                         {building.emoji} {building.name}
@@ -1512,12 +1543,18 @@ export default function NavigationPanel({
           className="leaflet-map-fill"
         >
           <TileLayer
-            attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
-            url={
-              theme === "dark"
-                ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-            }
+            // OpenStreetMap's standard tiles need no API key. CARTO's free
+            // basemaps now stamp "API KEY REQUIRED" across every tile. OSM has
+            // no dark style, so dark mode inverts these tiles in CSS instead
+            // (see body.dark .leaflet-tile-pane in NavigationPanel.css).
+            //
+            // Request tiles with CORS (OSM allows it). A plain cross-origin
+            // <img> yields an opaque response with status 0, which the service
+            // worker never caches, so the map had no tiles offline.
+            crossOrigin="anonymous"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+            maxZoom={19}
           />
 
           <MapController
@@ -1568,7 +1605,7 @@ export default function NavigationPanel({
               position={
                 polylinePositions[Math.floor(polylinePositions.length / 2)]
               }
-              icon={L.divIcon({
+              icon={cachedDivIcon(`distance:${totalDistance}`, {
                 html: `
                   <div class="leaflet-distance-badge">
                     ⚡ ${(totalDistance / 1000).toFixed(2)} km

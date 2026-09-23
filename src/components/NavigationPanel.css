@@ -501,3 +501,11 @@
   align-items: center;
   gap: 3px;
 }
+
+/* Dark map: OpenStreetMap has no dark tile style, so invert the light tiles.
+   hue-rotate(180deg) swings colours back (green parks stay green, water stays
+   blue) after the inversion. Only the tile pane is filtered, so markers, the
+   route line and popups keep their true colours. */
+body.dark .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
+}

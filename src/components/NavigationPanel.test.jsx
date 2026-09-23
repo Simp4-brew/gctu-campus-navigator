@@ -107,18 +107,19 @@ describe("UT-01  Render the Live Map view with the default centre coordinates", 
 describe("UT-02  Compute route distance between two selected campus points", () => {
   // Expected value derived independently of getDistance: an equirectangular
   // projection and a 3D chord-to-arc calculation on the same 6371km sphere
-  // both give 46.5654m for School Hospital -> GCTU Central Library.
+  // both give 45.4528m for School Hospital -> GCTU Central Library.
   it("returns the great-circle distance between two campus points", () => {
     const metres = getDistance(GRAPH_NODES.hospital, GRAPH_NODES.library);
 
-    expect(metres).toBeCloseTo(46.57, 1);
+    expect(metres).toBeCloseTo(45.45, 1);
   });
 
   it("computes the walking route distance for a selected start and destination", () => {
     const route = findDijkstraPath("hospital", "onny_aud");
 
-    // School Hospital -> Florence Onny Auditorium, along the campus path graph.
-    expect(Math.round(route.distance)).toBe(195);
+    // School Hospital -> Florence Onny Auditorium, along the campus path graph
+    // (hospital > junc_north > cafe > eng > onny_aud).
+    expect(Math.round(route.distance)).toBe(184);
     expect(route.path.length).toBeGreaterThan(1);
     expect(route.path[0]).toBe("hospital");
     expect(route.path[route.path.length - 1]).toBe("onny_aud");
@@ -192,7 +193,7 @@ describe("IT-03  Switching to the offline (blueprint) rendering mode keeps the s
     const routeWhileOnline = drawnRoute();
 
     // Drop the network. The service worker takes over tile delivery and serves
-    // the blueprint placeholder in place of live CARTO tiles (see IT-04).
+    // the blueprint placeholder in place of live map tiles (see IT-04).
     await act(async () => {
       Object.defineProperty(navigator, "onLine", {
         configurable: true,

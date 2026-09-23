@@ -25,8 +25,8 @@ export const BUILDING_LIST = [
     shortName: "Great Hall",
     category: "Academic",
     emoji: "🎓",
-    lat: 5.595541,
-    lng: -0.223642,
+    lat: 5.595531,
+    lng: -0.22394,
     desc: "A historic multipurpose hall hosting graduation ceremonies, matriculations, and major academic lectures.",
     facts: [
       "Seats up to 1,500 students and visitors",
@@ -59,8 +59,8 @@ export const BUILDING_LIST = [
     shortName: "SGSR Block",
     category: "Academic",
     emoji: "📚",
-    lat: 5.5966,
-    lng: -0.223736,
+    lat: 5.595506,
+    lng: -0.222916,
     desc: "The School of Graduate Studies and Research (SGSR) complex and research labs.",
     facts: [
       "Dedicated graduate study spaces and research carrels",
@@ -93,8 +93,8 @@ export const BUILDING_LIST = [
     shortName: "Engineering",
     category: "Faculty",
     emoji: "⚙️",
-    lat: 5.596133,
-    lng: -0.222994,
+    lat: 5.596015,
+    lng: -0.22302,
     desc: "Practical labs for telecommunications, electronics, microwave, and mobile engineering systems.",
     facts: [
       "Houses specialized mobile network testing simulators",
@@ -144,8 +144,8 @@ export const BUILDING_LIST = [
     shortName: "Auditorium",
     category: "Events",
     emoji: "🎭",
-    lat: 5.595879,
-    lng: -0.222871,
+    lat: 5.595878,
+    lng: -0.222958,
     desc: "A fully air-conditioned auditorium for lectures, seminars, and student association events.",
     facts: [
       "Fitted with state-of-the-art surround sound and projections",
@@ -161,8 +161,8 @@ export const BUILDING_LIST = [
     shortName: "School Library",
     category: "Academic",
     emoji: "📖",
-    lat: 5.596388,
-    lng: -0.2231,
+    lat: 5.596377,
+    lng: -0.223122,
     desc: "The digital and physical knowledge sanctuary of GCTU, housing over 50,000 tech books, journals, and silent collective research labs.",
     facts: [
       "Over 50,000 engineering and computer science science volumes",
@@ -195,8 +195,8 @@ export const GRAPH_NODES = {
   blockC: {
     id: "blockC",
     name: "Classroom Block C",
-    lat: 5.595541,
-    lng: -0.223642,
+    lat: 5.595531,
+    lng: -0.22394,
     type: "building",
   },
   blockB: {
@@ -209,8 +209,8 @@ export const GRAPH_NODES = {
   blockG: {
     id: "blockG",
     name: "Classroom Block G (SGSR)",
-    lat: 5.5966,
-    lng: -0.223736,
+    lat: 5.595506,
+    lng: -0.222916,
     type: "building",
   },
   focis: {
@@ -223,8 +223,8 @@ export const GRAPH_NODES = {
   eng: {
     id: "eng",
     name: "Faculty of Engineering",
-    lat: 5.596133,
-    lng: -0.222994,
+    lat: 5.596015,
+    lng: -0.22302,
     type: "building",
   },
   hospital: {
@@ -244,15 +244,15 @@ export const GRAPH_NODES = {
   onny_aud: {
     id: "onny_aud",
     name: "Florence Onny Auditorium",
-    lat: 5.595879,
-    lng: -0.222871,
+    lat: 5.595878,
+    lng: -0.222958,
     type: "building",
   },
   library: {
     id: "library",
     name: "GCTU Central Library",
-    lat: 5.596388,
-    lng: -0.2231,
+    lat: 5.596377,
+    lng: -0.223122,
     type: "building",
   },
 
@@ -320,9 +320,7 @@ export const GRAPH_EDGES = [
 
   { from: "blockC", to: "junc_west" },
   { from: "junc_west", to: "blockB" },
-  { from: "blockB", to: "blockG" },
 
-  { from: "blockG", to: "junc_north" },
   { from: "junc_north", to: "cafe" },
   { from: "junc_north", to: "hospital" },
   { from: "junc_north", to: "focis" },
@@ -345,4 +343,8 @@ export const GRAPH_EDGES = [
 
   // Direct Hospital <-> western walkway junction
   { from: "hospital", to: "junc_west" },
+
+  // SGSR (Block G) sits beside the Florence Onny Auditorium, reached only
+  // through it (coordinates re-taken from Google Maps).
+  { from: "blockG", to: "onny_aud" },
 ];

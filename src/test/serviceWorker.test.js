@@ -16,8 +16,9 @@ const SW_SOURCE = readFileSync(
   "utf-8",
 );
 
-// Minimal stand-in for the CacheStorage API.
-function createCacheStorage() {
+// Minimal stand-in for the CacheStorage API. URLs listed in `missing` fail
+// to cache, the way a 404 does.
+function createCacheStorage({ missing = [] } = {}) {
   const caches = new Map();
 
   const open = async (name) => {
@@ -25,6 +26,10 @@ function createCacheStorage() {
     const store = caches.get(name);
 
     return {
+      add: async (url) => {
+        if (missing.includes(url)) throw new TypeError(`404 ${url}`);
+        store.set(urlOf(url), `cached:${url}`);
+      },
       addAll: async (urls) => {
         for (const url of urls) store.set(urlOf(url), `cached:${url}`);
       },
@@ -57,7 +62,7 @@ const ORIGIN = "https://gctu-navigator.app";
 const urlOf = (request) =>
   new URL(typeof request === "string" ? request : request.url, ORIGIN).href;
 
-function loadServiceWorker({ network }) {
+function loadServiceWorker({ network, missing }) {
   const listeners = {};
 
   const self = {
@@ -68,7 +73,7 @@ function loadServiceWorker({ network }) {
     clients: { claim: vi.fn(async () => {}) },
   };
 
-  const caches = createCacheStorage();
+  const caches = createCacheStorage({ missing });
 
   // Responses the worker builds itself (the offline tile placeholder).
   class Response {
@@ -176,5 +181,60 @@ describe("IT-04  Load the app with no network connection", () => {
 
     expect(await worker.caches.keys()).toEqual(["gctu-navigator-v2"]);
     expect(worker.self.clients.claim).toHaveBeenCalled();
+  });
+});
+
+/* =========================================================
+   Install resilience and API freshness
+========================================================= */
+
+// A network response the worker can inspect and clone.
+const networkResponse = (body) => ({
+  status: 200,
+  body,
+  clone() {
+    return this;
+  },
+});
+
+describe("Service worker install and API caching", () => {
+  it("still installs when an app-shell asset is missing", async () => {
+    // A production build has no /src/* files; those requests 404.
+    const worker = loadServiceWorker({
+      network: offlineNetwork(),
+      missing: ["/src/main.jsx", "/src/App.jsx"],
+    });
+
+    await worker.dispatch("install", {});
+
+    const cached = [...worker.caches.stores.get("gctu-navigator-v2").keys()];
+    expect(cached).toContain(`${ORIGIN}/index.html`);
+    expect(cached).not.toContain(`${ORIGIN}/src/main.jsx`);
+    expect(worker.self.skipWaiting).toHaveBeenCalled();
+  });
+
+  it("serves API data from the network ahead of a stale cached copy", async () => {
+    const network = vi.fn(() => Promise.resolve(networkResponse("fresh")));
+    const worker = loadServiceWorker({ network });
+    const request = { url: `${ORIGIN}/api/faqs`, method: "GET" };
+
+    const cache = await worker.caches.open("gctu-navigator-v2");
+    await cache.put(request, networkResponse("stale"));
+
+    const response = await worker.dispatch("fetch", { request });
+
+    expect(response.body).toBe("fresh");
+  });
+
+  it("falls back to cached API data when offline", async () => {
+    const worker = loadServiceWorker({ network: offlineNetwork() });
+    const request = { url: `${ORIGIN}/api/faqs`, method: "GET" };
+
+    const cache = await worker.caches.open("gctu-navigator-v2");
+    await cache.put(request, networkResponse("cached faqs"));
+
+    const response = await worker.dispatch("fetch", { request });
+
+    expect(response.body).toBe("cached faqs");
   });
 });

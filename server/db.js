@@ -10,6 +10,21 @@ const DEFAULT_URI = "mongodb://localhost:27017/gctu_navigator";
 // than the ~30s the default resolver spends before giving up.
 const resolver = new Resolver({ timeout: 3000, tries: 2 });
 
+// Phone hotspots (e.g. iPhone's 172.20.10.1) sometimes refuse DNS queries
+// outright (ECONNREFUSED). Public resolvers still answer the SRV lookup, so
+// fall back to them rather than failing to start.
+const publicResolver = new Resolver({ timeout: 3000, tries: 2 });
+publicResolver.setServers(["8.8.8.8", "1.1.1.1"]);
+
+async function resolveSrv(name) {
+  try {
+    return await resolver.resolveSrv(name);
+  } catch (err) {
+    console.warn(`Local DNS failed for SRV lookup (${err.code}); retrying via public DNS.`);
+    return publicResolver.resolveSrv(name);
+  }
+}
+
 function credentials(url) {
   return url.username ? `${url.username}:${url.password}@` : "";
 }
@@ -33,7 +48,7 @@ async function discoverReplicaSet(url, host) {
 // Rebuild the SRV URI as a plain mongodb:// seed list the driver can use
 // without any TXT lookup.
 async function buildSeedListUri(url) {
-  const records = await resolver.resolveSrv(`_mongodb._tcp.${url.hostname}`);
+  const records = await resolveSrv(`_mongodb._tcp.${url.hostname}`);
   const hosts = records.map((record) => `${record.name}:${record.port}`);
 
   const params = new URLSearchParams(url.search);

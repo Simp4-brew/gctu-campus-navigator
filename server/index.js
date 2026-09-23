@@ -23,6 +23,20 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
+// Keep every /api response JSON. Without these, an unknown route or a
+// malformed JSON body gets Express's HTML error page (with a stack trace
+// outside production), which the client's res.json() cannot parse.
+app.use("/api", (req, res) => {
+  res.status(404).json({ error: "Not found" });
+});
+
+app.use((err, req, res, next) => {
+  const status = err.status || err.statusCode || 500;
+  res
+    .status(status)
+    .json({ error: status < 500 ? err.message : "Internal server error" });
+});
+
 connectDB().then(() => {
   app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 });

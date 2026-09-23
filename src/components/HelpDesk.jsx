@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Send,
   Phone,
@@ -8,40 +8,33 @@ import {
   CheckCircle,
 } from "lucide-react";
 
-const FAQS = [
-  {
-    id: "faq-wifi",
-    question: "How do I connect to the GCTU Student Wi-Fi?",
-    answer:
-      "Select the 'GCTU-STUDENTS' network on your device. When the routing page appears, log in using your GCTU Student Portal ID and the default password provided at the admissions office. For IT support, visit the FOCIS computer labs.",
-  },
-  {
-    id: "faq-clinic",
-    question: "Where is the School Clinic located and what are the hours?",
-    answer:
-      "The School Clinic is located next to FOCIS, on the right side of the FOCIS faculty building. It operates 24/7 for emergencies, consultation, and dispensary services, and is completely free of charge upon presenting a valid student ID.",
-  },
-  {
-    id: "faq-portal",
-    question: "How do I access my GCTU Digital Student Portal?",
-    answer:
-      "Go to portal.gctu.edu.gh in your browser. Enter your registered index number as username and the temporary password sent to your email. You can view your grades, register for courses, and print your fees transcripts here.",
-  },
-  {
-    id: "faq-deadlines",
-    question: "How can I check academic registration deadlines?",
-    answer:
-      "Filing and registry deadlines are published on the electronic board at the Main Administration Building foyer. You can also view current university circulars under the 'Announcements' tab on the general website gctu.edu.gh.",
-  },
-];
+import {
+  FAQS as FALLBACK_FAQS,
+  CONTACTS as FALLBACK_CONTACTS,
+} from "../data/helpdesk";
 
-const CONTACTS = [
-  { dept: "Main Admissions Office", phone: "+233 302 200 233" },
-  { dept: "Academic Affairs Helpdesk", phone: "+233 302 221 234" },
-  { dept: "FoCIS CS/IT Dean's office", phone: "+233 302 251 543" },
-  { dept: "Engineering Faculty Admin", phone: "+233 302 251 654" },
-  { dept: "School Clinic Emergency Line", phone: "+233 244 567 890" },
-];
+// Same-origin by default: the Vite dev server proxies /api to the Express
+// server (see vite.config.ts), and a built app is served alongside it.
+// VITE_API_URL only needs setting when the API lives on another host.
+const API_BASE = `${import.meta.env.VITE_API_URL ?? ""}/api`;
+
+const TOKEN_KEY = "gctu-admin-token";
+const USERNAME_KEY = "gctu-admin-username";
+const SESSION_EXPIRED = "Your admin session has expired. Please sign in again.";
+
+// Resolve to the body of a successful list response and reject anything else.
+// Storing an error body such as `{ error: "..." }` as a list made the next
+// `.map` in render throw and take the whole app down.
+async function fetchList(url, options) {
+  const res = await fetch(url, options);
+  const data = await res.json();
+  if (!res.ok || !Array.isArray(data)) {
+    const err = new Error(data?.error || `Request failed (${res.status})`);
+    err.status = res.status;
+    throw err;
+  }
+  return data;
+}
 
 export default function HelpDesk() {
   const [openFaq, setOpenFaq] = useState(null);
@@ -56,45 +49,63 @@ export default function HelpDesk() {
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [adminUsername, setAdminUsername] = useState("");
+  const [adminUsername, setAdminUsername] = useState(
+    () => localStorage.getItem(USERNAME_KEY) || "",
+  );
   const [adminPassword, setAdminPassword] = useState("");
-  const [adminToken, setAdminToken] = useState(() => {
-    if (typeof window === "undefined") return "";
-    return localStorage.getItem("gctu-admin-token") || "";
-  });
-  const [adminLoggedIn, setAdminLoggedIn] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return Boolean(localStorage.getItem("gctu-admin-token"));
-  });
+  const [adminToken, setAdminToken] = useState(
+    () => localStorage.getItem(TOKEN_KEY) || "",
+  );
+  const adminLoggedIn = Boolean(adminToken);
   const [adminLoading, setAdminLoading] = useState(false);
   const [adminError, setAdminError] = useState("");
 
-  // Same-origin by default: the Vite dev server proxies /api to the Express
-  // server (see vite.config.ts), and a built app is served alongside it.
-  // VITE_API_URL only needs setting when the API lives on another host.
-  const API_BASE = `${import.meta.env.VITE_API_URL ?? ""}/api`;
-
-  // Load FAQs, contacts, and tickets from the API on mount
+  // Load FAQs and contacts on mount. If the API is unreachable (offline with
+  // nothing cached, or the server is down) fall back to the bundled copy.
   useEffect(() => {
-    fetch(`${API_BASE}/faqs`)
-      .then((r) => r.json())
+    fetchList(`${API_BASE}/faqs`)
       .then(setFaqs)
-      .catch((err) => console.error("Failed to load FAQs:", err));
+      .catch((err) => {
+        console.error("Failed to load FAQs:", err);
+        setFaqs(FALLBACK_FAQS);
+      });
 
-    fetch(`${API_BASE}/contacts`)
-      .then((r) => r.json())
+    fetchList(`${API_BASE}/contacts`)
       .then(setContacts)
-      .catch((err) => console.error("Failed to load contacts:", err));
-
-    fetchTickets();
+      .catch((err) => {
+        console.error("Failed to load contacts:", err);
+        setContacts(FALLBACK_CONTACTS);
+      });
   }, []);
 
-  const fetchTickets = () => {
-    fetch(`${API_BASE}/tickets`)
-      .then((r) => r.json())
-      .then(setTickets)
-      .catch((err) => console.error("Failed to load tickets:", err));
+  const endAdminSession = (message = "") => {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USERNAME_KEY);
+    setAdminToken("");
+    setAdminUsername("");
+    setAdminPassword("");
+    setAdminError(message);
+    setTickets([]);
   };
+
+  // The ticket list is admin-only, so it is fetched with the session token and
+  // reloaded whenever the admin signs in or a stored session is restored.
+  const fetchTickets = useCallback(() => {
+    if (!adminToken) return;
+
+    fetchList(`${API_BASE}/tickets`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    })
+      .then(setTickets)
+      .catch((err) => {
+        if (err.status === 401) endAdminSession(SESSION_EXPIRED);
+        else console.error("Failed to load tickets:", err);
+      });
+  }, [adminToken]);
+
+  useEffect(() => {
+    fetchTickets();
+  }, [fetchTickets]);
 
   const handleAdminLogin = async (e) => {
     e.preventDefault();
@@ -114,10 +125,11 @@ export default function HelpDesk() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Login failed");
 
-      localStorage.setItem("gctu-admin-token", data.token);
+      const username = data.username || adminUsername;
+      localStorage.setItem(TOKEN_KEY, data.token);
+      localStorage.setItem(USERNAME_KEY, username);
       setAdminToken(data.token);
-      setAdminLoggedIn(true);
-      setAdminUsername(data.username || adminUsername);
+      setAdminUsername(username);
       setAdminPassword("");
     } catch (err) {
       setAdminError(err.message || "Unable to sign in");
@@ -126,14 +138,7 @@ export default function HelpDesk() {
     }
   };
 
-  const handleAdminLogout = () => {
-    localStorage.removeItem("gctu-admin-token");
-    setAdminToken("");
-    setAdminLoggedIn(false);
-    setAdminUsername("");
-    setAdminPassword("");
-    setAdminError("");
-  };
+  const handleAdminLogout = () => endAdminSession();
 
   const handleResolveTicket = async (ticketId) => {
     try {
@@ -149,6 +154,10 @@ export default function HelpDesk() {
         }),
       });
 
+      if (res.status === 401) {
+        endAdminSession(SESSION_EXPIRED);
+        return;
+      }
       if (!res.ok) throw new Error("Unable to update ticket");
       const updated = await res.json();
       setTickets((prev) =>
@@ -189,21 +198,17 @@ export default function HelpDesk() {
       setSubject("");
       setMessage("");
       setSuccess(true);
+      setTimeout(() => setSuccess(false), 4000);
 
-      // Poll for the bot reply after a short delay
-      setTimeout(() => {
-        fetchTickets();
-      }, 3000);
+      // Pick up the server's bot reply (sent ~2.5s after creation). A no-op
+      // unless an admin is signed in, since only admins see the list.
+      setTimeout(fetchTickets, 3000);
     } catch (err) {
       console.error(err);
       alert("Something went wrong submitting your request. Please try again.");
     } finally {
       setSubmitting(false);
     }
-
-    setTimeout(() => {
-      setSuccess(false);
-    }, 4000);
   };
 
   return (

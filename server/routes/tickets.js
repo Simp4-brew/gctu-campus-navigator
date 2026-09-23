@@ -4,8 +4,25 @@ import { authenticateAdmin } from "../middleware/auth.js";
 
 const router = express.Router();
 
-// GET /api/tickets - all tickets, most recent first
-router.get("/", async (req, res) => {
+const TICKET_STATUSES = Ticket.schema.path("status").enumValues;
+
+// TKT-#### leaves only 9000 ids, so collisions are expected once tickets pile
+// up. Retry on the unique-index violation instead of surfacing a 500.
+async function createTicketWithUniqueId(fields, attempts = 5) {
+  for (let i = 0; ; i++) {
+    const ticketId = `TKT-${Math.floor(1000 + Math.random() * 9000)}`;
+    try {
+      return await Ticket.create({ ...fields, ticketId });
+    } catch (err) {
+      const duplicateId = err.code === 11000 && err.keyPattern?.ticketId;
+      if (!duplicateId || i >= attempts - 1) throw err;
+    }
+  }
+}
+
+// GET /api/tickets - all tickets, most recent first (admin only: every
+// ticket carries a student's name and message)
+router.get("/", authenticateAdmin, async (req, res) => {
   try {
     const tickets = await Ticket.find().sort({ createdAt: -1 });
     res.json(tickets);
@@ -24,9 +41,7 @@ router.post("/", async (req, res) => {
         .json({ error: "name, subject and message are required" });
     }
 
-    const ticketId = `TKT-${Math.floor(1000 + Math.random() * 9000)}`;
-    const ticket = await Ticket.create({
-      ticketId,
+    const ticket = await createTicketWithUniqueId({
       name,
       faculty,
       subject,
@@ -36,6 +51,7 @@ router.post("/", async (req, res) => {
     });
 
     res.status(201).json(ticket);
+    const { ticketId } = ticket;
 
     // Simulated bot auto-responder after delay
     setTimeout(async () => {
@@ -57,7 +73,7 @@ router.post("/", async (req, res) => {
         lowerMsg.includes("health")
       ) {
         botReply =
-          "Hello. If you require medical attention, you may walk straight into the GCTU School Hospital located next to SGSR block. Ensure you carry your GCTU Student ID card. For absolute medical emergencies, please dial our direct line at +233 244 567 890.";
+          "Hello. If you require medical attention, you may walk straight into the GCTU School Clinic located next to FOCIS. Ensure you carry your GCTU Student ID card. For absolute medical emergencies, please dial our direct line at +233 244 567 890.";
       } else if (
         lowerMsg.includes("portal") ||
         lowerMsg.includes("grade") ||
@@ -75,10 +91,17 @@ router.post("/", async (req, res) => {
           "Hi! Tuition payments are validated through EcoBank or Consolidated Bank Ghana (CBG) partners. Once deposited, ensure you bring your physical deposit slip to the finance counter at the Admin block to obtain your receipt.";
       }
 
-      await Ticket.findOneAndUpdate(
-        { ticketId },
-        { status: "replied", reply: botReply },
-      );
+      // Runs outside the request, so nothing else would catch a failure here;
+      // an unhandled rejection would take the whole server down. Only still-
+      // open tickets are touched, so an admin's manual reply is never replaced.
+      try {
+        await Ticket.findOneAndUpdate(
+          { ticketId, status: "open" },
+          { status: "replied", reply: botReply },
+        );
+      } catch (err) {
+        console.error(`Bot auto-reply failed for ${ticketId}:`, err.message);
+      }
     }, 2500);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -89,6 +112,12 @@ router.post("/", async (req, res) => {
 router.patch("/:ticketId", authenticateAdmin, async (req, res) => {
   try {
     const { status, reply } = req.body;
+    if (status !== undefined && !TICKET_STATUSES.includes(status)) {
+      return res.status(400).json({
+        error: `status must be one of: ${TICKET_STATUSES.join(", ")}`,
+      });
+    }
+
     const ticket = await Ticket.findOneAndUpdate(
       { ticketId: req.params.ticketId },
       { ...(status && { status }), ...(reply !== undefined && { reply }) },

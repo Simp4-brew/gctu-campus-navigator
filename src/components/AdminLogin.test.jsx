@@ -28,7 +28,7 @@ const TICKET = {
 
 // One stub for every call the component makes. The `login` option decides
 // whether the credentials are accepted, so each test picks the outcome it needs.
-function stubApi({ login = "ok" } = {}) {
+function stubApi({ login = "ok", session = "valid" } = {}) {
   return vi.fn((url, options = {}) => {
     const target = String(url);
     const json = (status, body) =>
@@ -48,7 +48,12 @@ function stubApi({ login = "ok" } = {}) {
       return json(200, { ...TICKET, status: "replied", reply: "Reviewed." });
     }
 
-    if (target.endsWith("/tickets")) return json(200, [TICKET]);
+    if (target.endsWith("/tickets")) {
+      if (session === "expired") {
+        return json(401, { error: "Invalid or expired token" });
+      }
+      return json(200, [TICKET]);
+    }
 
     return json(200, []);
   });
@@ -138,7 +143,8 @@ describe("UT-05  Admin login page", () => {
     signIn();
 
     expect(await screen.findByText(/recent activities/i)).toBeInTheDocument();
-    expect(screen.getByText(/TKT-4821/)).toBeInTheDocument();
+    // The list is admin-only, so it is fetched with the token after sign-in.
+    expect(await screen.findByText(/TKT-4821/)).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /mark replied/i }),
     ).toBeInTheDocument();
@@ -222,5 +228,17 @@ describe("UT-05  Admin login page", () => {
     // Signed in on first paint, without hitting the login endpoint.
     expect(screen.getByText(/signed in as/i)).toBeInTheDocument();
     expect(loginCalls()).toHaveLength(0);
+  });
+
+  it("signs out and asks to sign in again when the stored session has expired", async () => {
+    window.localStorage.setItem("gctu-admin-token", TOKEN);
+    global.fetch = stubApi({ session: "expired" });
+
+    await renderHelpDesk();
+
+    expect(await screen.findByText(/session has expired/i)).toBeInTheDocument();
+    expect(window.localStorage.getItem("gctu-admin-token")).toBeNull();
+    expect(screen.queryByText(/recent activities/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/admin password/i)).toBeInTheDocument();
   });
 });

@@ -149,3 +149,28 @@ describe("UT-04  Submit the Help Request form with a required field empty", () =
     expect(screen.queryByText(/request filed/i)).not.toBeInTheDocument();
   });
 });
+
+/* =========================================================
+   API failure handling
+========================================================= */
+
+describe("Help Desk content when the API fails", () => {
+  it("shows the bundled FAQs and hotlines instead of crashing on an error response", async () => {
+    // A server error arrives as a JSON object, not a list.
+    global.fetch = vi.fn(() =>
+      Promise.resolve({
+        ok: false,
+        status: 500,
+        json: () => Promise.resolve({ error: "database unavailable" }),
+      }),
+    );
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await renderHelpDesk();
+
+    expect(
+      await screen.findByText(/connect to the GCTU Student Wi-Fi/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Main Admissions Office")).toBeInTheDocument();
+  });
+});

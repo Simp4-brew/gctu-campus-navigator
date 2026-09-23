@@ -71,8 +71,26 @@ describe("IT-02  Help Desk form POSTs to the Express API and persists to MongoDB
     expect(stored.createdAt).toBeInstanceOf(Date);
   }, 30000);
 
-  it("returns the persisted ticket from GET /api/tickets", async () => {
+  it("refuses to list tickets without an admin token", async () => {
+    // Every ticket holds a student's name and message.
     const res = await fetch(`${API}/api/tickets`);
+
+    expect(res.status).toBe(401);
+  }, 30000);
+
+  it("returns the persisted ticket from GET /api/tickets to an admin", async () => {
+    const { token } = await fetch(`${API}/api/admin/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: process.env.ADMIN_USERNAME || "admin",
+        password: process.env.ADMIN_PASSWORD || "admin123",
+      }),
+    }).then((r) => r.json());
+
+    const res = await fetch(`${API}/api/tickets`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
     expect(res.status).toBe(200);
 

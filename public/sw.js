@@ -9,18 +9,18 @@ const ASSETS_TO_CACHE = [
   '/src/data/buildings.js',
   '/src/components/CampusHome.jsx',
   '/src/components/NavigationPanel.jsx',
-  '/src/components/HelpDesk.jsx',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+  '/src/components/HelpDesk.jsx'
 ];
 
 // Install: Cache essential assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[Service Worker] Caching app shell and CDNs');
-      return cache.addAll(ASSETS_TO_CACHE);
+      console.log('[Service Worker] Caching app shell');
+      // Cache each asset on its own. cache.addAll() rejects outright if any
+      // single URL fails, and the /src/* entries only exist on the dev server,
+      // so a production install used to abort and leave no offline support.
+      return Promise.allSettled(ASSETS_TO_CACHE.map((url) => cache.add(url)));
     }).then(() => self.skipWaiting())
   );
 });
@@ -45,10 +45,35 @@ self.addEventListener('activate', (event) => {
 // blueprint placeholder rather than a broken image.
 const TILE_HOSTS = ['basemaps.cartocdn.com', 'tile.openstreetmap.org'];
 
+const offlineResponse = () =>
+  new Response('', { status: 503, statusText: 'Offline' });
+
+// API data changes (tickets get replied to), so it must come from the network
+// whenever there is one. Serving it cache-first handed the Help Desk a stale
+// ticket list and hid the bot's reply. The cache is only an offline fallback,
+// and admin (Authorization) responses are never stored on the device.
+function networkFirst(request) {
+  return fetch(request).then((networkResponse) => {
+    const authenticated = request.headers && request.headers.get('Authorization');
+    if (networkResponse.status === 200 && !authenticated) {
+      const cacheCopy = networkResponse.clone();
+      caches.open(CACHE_NAME).then((cache) => cache.put(request, cacheCopy));
+    }
+    return networkResponse;
+  }).catch(() =>
+    caches.match(request).then((cachedResponse) => cachedResponse || offlineResponse())
+  );
+}
+
 // Fetch: Serve from cache with Network Fallback
 self.addEventListener('fetch', (event) => {
   // Exclude non-GET requests or browser extensions (chrome-extension://)
   if (event.request.method !== 'GET' || !event.request.url.startsWith('http')) {
+    return;
+  }
+
+  if (new URL(event.request.url).pathname.startsWith('/api/')) {
+    event.respondWith(networkFirst(event.request));
     return;
   }
 
@@ -61,7 +86,7 @@ self.addEventListener('fetch', (event) => {
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse));
           }
         }).catch(() => {/* Ignore network update fails when offline */});
-        
+
         return cachedResponse;
       }
 
@@ -77,7 +102,6 @@ self.addEventListener('fetch', (event) => {
       }).catch((err) => {
         // Fallback for when offline and resource not cached
         console.log('[Service Worker] Fetch failed, network offline', err);
-        // If it's a tile image, we can return a local empty SVG or similar placeholder.
         // NavigationPanel draws its basemap from CARTO, not OSM directly, so the
         // placeholder has to match the host the map actually requests.
         if (TILE_HOSTS.some((host) => event.request.url.includes(host))) {
@@ -86,6 +110,13 @@ self.addEventListener('fetch', (event) => {
             { headers: { 'Content-Type': 'image/svg+xml' } }
           );
         }
+        // A page load (any client-side URL) can still be served by the cached
+        // app shell. Anything else gets a real error response rather than
+        // `undefined`, which respondWith() rejects as a network error.
+        if (event.request.mode === 'navigate') {
+          return caches.match('/index.html').then((shell) => shell || offlineResponse());
+        }
+        return offlineResponse();
       });
     })
   );

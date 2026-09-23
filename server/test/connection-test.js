@@ -87,7 +87,7 @@ function describe(body) {
 head(5, "LIVE API ENDPOINTS");
 const get = async (path) => {
   for (let i = 0; i < 30; i++) {
-    try { const r = await fetch(`http://localhost:5000${path}`); return [r.status, await r.json()]; }
+    try { const r = await fetch(`http://localhost:${process.env.PORT || 5000}${path}`); return [r.status, await r.json()]; }
     catch { await new Promise(r => setTimeout(r, 1000)); }
   }
   return [0, null];

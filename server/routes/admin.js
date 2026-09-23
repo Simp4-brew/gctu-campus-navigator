@@ -2,13 +2,21 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import Admin from "../models/Admin.js";
+import { JWT_SECRET } from "../middleware/auth.js";
 
 const router = express.Router();
 
 router.post("/login", async (req, res) => {
   try {
     const { username, password } = req.body;
-    if (!username || !password) {
+    // Strings only: an object such as { "$ne": null } would otherwise reach
+    // the MongoDB query as an operator (NoSQL injection).
+    if (
+      !username ||
+      !password ||
+      typeof username !== "string" ||
+      typeof password !== "string"
+    ) {
       return res
         .status(400)
         .json({ error: "username and password are required" });
@@ -37,7 +45,7 @@ router.post("/login", async (req, res) => {
 
     const token = jwt.sign(
       { id: admin._id, username: admin.username },
-      process.env.JWT_SECRET || "dev-secret",
+      JWT_SECRET,
       { expiresIn: "8h" },
     );
 

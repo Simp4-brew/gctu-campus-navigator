@@ -34,9 +34,9 @@
 | GET    | `/api/faqs`                | FAQ list for Help Desk               |
 | GET    | `/api/faqs/search?q=`      | Text search FAQs (e.g. `?q=wifi`)    |
 | GET    | `/api/contacts`            | Support hotline contacts             |
-| GET    | `/api/tickets`             | All help desk tickets (newest first) |
+| GET    | `/api/tickets`             | All help desk tickets, newest first (admin JWT) |
 | POST   | `/api/tickets`             | Create a ticket `{name, faculty, subject, message}` |
-| PATCH  | `/api/tickets/:ticketId`   | Update ticket status/reply           |
+| PATCH  | `/api/tickets/:ticketId`   | Update ticket status/reply (admin JWT) |
 
 ## Models (server/models)
 
