@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GRAPH_NODES } from "../data/buildings";
 
@@ -319,5 +319,61 @@ describe("Places inside buildings", () => {
 
     expect(options).toContain("📖 GCTU Central Library (in Admin Block)");
     expect(options).toContain("🎭 Florence Onny Auditorium (in SGSR Block)");
+  });
+});
+
+/* =========================================================
+   Spoken announcements
+========================================================= */
+
+describe("Spoken announcements", () => {
+  let spoken;
+
+  beforeEach(() => {
+    spoken = [];
+    window.speechSynthesis = {
+      speaking: false,
+      pending: false,
+      paused: false,
+      getVoices: () => [],
+      speak: (utterance) => spoken.push(utterance.text),
+      cancel: vi.fn(),
+      resume: vi.fn(),
+    };
+    window.SpeechSynthesisUtterance = class {
+      constructor(text) {
+        this.text = text;
+      }
+    };
+  });
+
+  afterEach(() => {
+    delete window.speechSynthesis;
+    delete window.SpeechSynthesisUtterance;
+  });
+
+  it("speaks inside the Walk Demo tap (unlocking speech on iPhone) and on arrival", async () => {
+    vi.useFakeTimers();
+
+    try {
+      renderPanel();
+
+      fireEvent.change(screen.getByLabelText(/start/i), { target: { value: "gate" } });
+      fireEvent.change(screen.getByLabelText(/destination/i), { target: { value: "library" } });
+      fireEvent.click(screen.getByRole("button", { name: /walk demo/i }));
+
+      // Spoken synchronously during the click, before any timer runs.
+      expect(spoken).toEqual(["Starting navigation to GCTU Central Library."]);
+
+      await act(async () => {
+        vi.advanceTimersByTime(30000);
+      });
+
+      expect(spoken[1]).toBe(
+        "You have arrived. Enter the Main Administration Building and take the stairs to the First Floor for the GCTU Central Library.",
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

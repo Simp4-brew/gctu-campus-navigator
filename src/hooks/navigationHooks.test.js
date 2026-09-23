@@ -5,6 +5,7 @@ import { GRAPH_NODES } from "../data/buildings.js";
 import { planRoute } from "../lib/routing.js";
 import { useLiveGps } from "./useLiveGps.js";
 import { useWalkSimulation } from "./useWalkSimulation.js";
+import { useWakeLock } from "./useWakeLock.js";
 
 /* =========================================================
    useWalkSimulation
@@ -44,6 +45,18 @@ describe("useWalkSimulation", () => {
     expect(result.current.status.status).toBe("Arrived! Welcome to your destination!");
     expect(result.current.status.remainingDist).toBe(0);
     expect(onMove).toHaveBeenLastCalledWith([GRAPH_NODES.admin.lat, GRAPH_NODES.admin.lng]);
+  });
+
+  it("calls onArrive once when the walk reaches the destination", () => {
+    const onArrive = vi.fn();
+    const { result } = renderHook(() => useWalkSimulation(vi.fn(), onArrive));
+
+    act(() => result.current.start(routeNodes()));
+    act(() => vi.advanceTimersByTime(5000));
+    expect(onArrive).not.toHaveBeenCalled();
+
+    act(() => vi.advanceTimersByTime(30000));
+    expect(onArrive).toHaveBeenCalledTimes(1);
   });
 
   it("stops cleanly and does not keep moving afterwards", () => {
@@ -110,6 +123,53 @@ describe("useLiveGps", () => {
     expect(onMove).toHaveBeenCalledWith([node.lat, node.lng]);
   });
 
+  it("announces arrival once when a fix reaches the destination", () => {
+    const onArrive = vi.fn();
+    const { result } = renderHook(() =>
+      useLiveGps({
+        routePoints: route.points,
+        stepCount: route.steps.length,
+        onMove: vi.fn(),
+        onArrive,
+      }),
+    );
+    const [lat, lng] = route.points[route.points.length - 1];
+
+    act(() => result.current.start());
+
+    // Still at the start of the route: not arrived.
+    act(() => onFix(fix(...route.points[0], 8)));
+    expect(onArrive).not.toHaveBeenCalled();
+    expect(result.current.arrived).toBe(false);
+
+    // ~5m from the destination.
+    act(() => onFix(fix(lat + 0.00004, lng, 8)));
+    expect(onArrive).toHaveBeenCalledTimes(1);
+    expect(result.current.arrived).toBe(true);
+
+    // Further fixes at the destination do not repeat the announcement.
+    act(() => onFix(fix(lat, lng, 8)));
+    expect(onArrive).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores an inaccurate fix for arrival", () => {
+    const onArrive = vi.fn();
+    const { result } = renderHook(() =>
+      useLiveGps({
+        routePoints: route.points,
+        stepCount: route.steps.length,
+        onMove: vi.fn(),
+        onArrive,
+      }),
+    );
+    const [lat, lng] = route.points[route.points.length - 1];
+
+    act(() => result.current.start());
+    act(() => onFix(fix(lat, lng, 120)));
+
+    expect(onArrive).not.toHaveBeenCalled();
+  });
+
   it("stops tracking and clears the watch when permission is denied", () => {
     const { result } = renderGps();
 
@@ -140,5 +200,35 @@ describe("useLiveGps", () => {
     expect(result.current.active).toBe(false);
     expect(navigator.geolocation.watchPosition).not.toHaveBeenCalled();
     expect(window.alert).toHaveBeenCalled();
+  });
+});
+
+/* =========================================================
+   useWakeLock
+========================================================= */
+
+describe("useWakeLock", () => {
+  afterEach(() => {
+    delete navigator.wakeLock;
+  });
+
+  it("keeps the screen on while navigating and releases it afterwards", async () => {
+    const release = vi.fn(() => Promise.resolve());
+    const request = vi.fn(() => Promise.resolve({ release }));
+    Object.defineProperty(navigator, "wakeLock", { configurable: true, value: { request } });
+
+    const { rerender } = renderHook(({ active }) => useWakeLock(active), {
+      initialProps: { active: true },
+    });
+    await act(async () => {});
+
+    expect(request).toHaveBeenCalledWith("screen");
+
+    rerender({ active: false });
+    expect(release).toHaveBeenCalled();
+  });
+
+  it("does nothing on browsers without wake lock support", () => {
+    expect(() => renderHook(() => useWakeLock(true))).not.toThrow();
   });
 });

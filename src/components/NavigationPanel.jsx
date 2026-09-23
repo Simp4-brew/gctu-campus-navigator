@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Compass as GpsIcon,
   Landmark,
@@ -14,7 +14,9 @@ import "./NavigationPanel.css";
 import { BUILDING_LIST, GRAPH_NODES } from "../data/buildings.js";
 import { formatDistance } from "../lib/geo.js";
 import { planRoute } from "../lib/routing.js";
+import { arrivalMessage, speak } from "../lib/speech.js";
 import { useLiveGps } from "../hooks/useLiveGps.js";
+import { useWakeLock } from "../hooks/useWakeLock.js";
 import { useWalkSimulation } from "../hooks/useWalkSimulation.js";
 import CampusMap, { DEFAULT_CENTER } from "./navigation/CampusMap.jsx";
 import LocationSelect from "./navigation/LocationSelect.jsx";
@@ -49,11 +51,24 @@ export default function NavigationPanel({
 
   const route = useMemo(() => planRoute(startId, endId), [startId, endId]);
 
-  const simulation = useWalkSimulation(setMapCenter);
+  // Arrival is announced from a timer or a GPS callback, so it reads the
+  // route through a ref rather than a stale closure.
+  const routeRef = useRef(route);
+
+  useEffect(() => {
+    routeRef.current = route;
+  }, [route]);
+
+  const announceArrival = useCallback(() => {
+    speak(arrivalMessage(routeRef.current));
+  }, []);
+
+  const simulation = useWalkSimulation(setMapCenter, announceArrival);
   const liveGps = useLiveGps({
     routePoints: route.points,
     stepCount: route.steps.length,
     onMove: setMapCenter,
+    onArrive: announceArrival,
   });
 
   const { active: simulating, stop: stopSimulation } = simulation;
@@ -64,6 +79,14 @@ export default function NavigationPanel({
     : liveGps.active
       ? liveGps.stepIndex
       : 0;
+
+  // Keep the phone screen on while navigating, so tracking and the
+  // arrival announcement are not paused by the screen locking.
+  useWakeLock(tracking);
+
+  // For a place inside a building, the final "enter and take the stairs" step.
+  const lastStep = route.steps[route.steps.length - 1];
+  const indoorStep = lastStep?.indoor ? lastStep : null;
 
   const isFarFromCampus =
     liveGps.active &&
@@ -137,7 +160,11 @@ export default function NavigationPanel({
       return;
     }
 
-    liveGps.start();
+    // Speaking inside the tap also unlocks speech on iPhone, so the later
+    // arrival announcement (from a GPS callback) is allowed to play.
+    if (liveGps.start()) {
+      speak(`Starting live navigation to ${route.endName}.`);
+    }
   };
 
   const toggleSimulation = () => {
@@ -162,6 +189,8 @@ export default function NavigationPanel({
       return;
     }
 
+    // Must run inside the tap: see toggleLiveGps.
+    speak(`Starting navigation to ${route.endName}.`);
     simulation.start(routeNodes);
   };
 
@@ -274,7 +303,16 @@ export default function NavigationPanel({
                   </button>
                 </div>
 
-                {liveGps.active && !isFarFromCampus && (
+                {liveGps.active && liveGps.arrived && (
+                  <div className="real-gps-notice" role="status">
+                    <span className="real-gps-notice-title">
+                      ✅ You have arrived at {route.endName}.
+                    </span>{" "}
+                    {indoorStep?.text}
+                  </div>
+                )}
+
+                {liveGps.active && !liveGps.arrived && !isFarFromCampus && (
                   <div className="real-gps-notice">
                     <span className="real-gps-notice-title">
                       📡 Live GPS Active:

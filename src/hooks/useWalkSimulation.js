@@ -14,16 +14,6 @@ const SIM_SPEED_LABEL = `1.4 m/s (Walking · ${SIM_TIME_SCALE}× demo)`;
 
 const METRES_PER_TICK = (SIM_WALK_SPEED_MPS * SIM_TIME_SCALE * SIM_TICK_MS) / 1000;
 
-function announceArrival(name) {
-  if (typeof window === "undefined" || !window.speechSynthesis) return;
-
-  const utterance = new SpeechSynthesisUtterance(
-    `You have arrived at ${name}. Enjoy GCTU campus!`,
-  );
-  utterance.rate = 1;
-  window.speechSynthesis.speak(utterance);
-}
-
 /* Split a list of graph nodes into segments with their cumulative
    start distance, so a distance travelled maps to a point on the route. */
 function buildSegments(routeNodes) {
@@ -51,16 +41,22 @@ function buildSegments(routeNodes) {
    walking pace, interpolating along each segment so the
    motion is continuous rather than node-to-node jumps.
 
-   onMove([lat, lng]) is called for every new position.
+   onMove([lat, lng]) is called for every new position and
+   onArrive() once the destination is reached.
 ========================================================= */
 
-export function useWalkSimulation(onMove) {
+export function useWalkSimulation(onMove, onArrive) {
   const [active, setActive] = useState(false);
   const [status, setStatus] = useState(null);
   const [position, setPosition] = useState(null);
   const [stepIndex, setStepIndex] = useState(0);
 
   const timerRef = useRef(null);
+  const onArriveRef = useRef(onArrive);
+
+  useEffect(() => {
+    onArriveRef.current = onArrive;
+  }, [onArrive]);
 
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
@@ -123,7 +119,7 @@ export function useWalkSimulation(onMove) {
           });
           setActive(false);
           setStepIndex(0);
-          announceArrival(destination.name);
+          onArriveRef.current?.();
           return;
         }
 
