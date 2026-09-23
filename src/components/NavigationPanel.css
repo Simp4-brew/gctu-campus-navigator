@@ -522,3 +522,38 @@ body.dark .select-icon-nav,
 body.dark .swap-btn {
   color: var(--gctu-gold);
 }
+
+/* "Inside this building" list in a building's map popup. */
+.popup-inside {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin: 0.2rem 0;
+  padding-top: 0.35rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.popup-inside-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+}
+
+.popup-inside-place {
+  text-align: left;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #05195e;
+  cursor: pointer;
+}
+
+.popup-inside-place:hover,
+.popup-inside-place:focus-visible {
+  border-color: #05195e;
+}

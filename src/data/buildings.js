@@ -8,8 +8,8 @@ export const BUILDING_LIST = [
     shortName: "Admin Block",
     category: "Administration",
     emoji: "🏛",
-    lat: 5.595919,
-    lng: -0.222668,
+    lat: 5.596377,
+    lng: -0.223122,
     desc: "Central hub for university management, registry, and administrative offices.",
     facts: [
       "Founded in 1973 during GCTU's telecom college era",
@@ -144,9 +144,12 @@ export const BUILDING_LIST = [
     shortName: "Auditorium",
     category: "Events",
     emoji: "🎭",
-    lat: 5.595878,
-    lng: -0.222958,
-    desc: "A fully air-conditioned auditorium for lectures, seminars, and student association events.",
+    // Inside the Graduate block, entered through its main entrance.
+    insideBuilding: "blockG",
+    floor: "Ground Floor",
+    lat: 5.595506,
+    lng: -0.222916,
+    desc: "A fully air-conditioned auditorium inside the Graduate block (SGSR) for lectures, seminars, and student association events.",
     facts: [
       "Fitted with state-of-the-art surround sound and projections",
       "Named after GCTU's legendary pioneer registrar",
@@ -161,9 +164,12 @@ export const BUILDING_LIST = [
     shortName: "School Library",
     category: "Academic",
     emoji: "📖",
+    // On the first floor of the Main Administration Building.
+    insideBuilding: "admin",
+    floor: "First Floor",
     lat: 5.596377,
     lng: -0.223122,
-    desc: "The digital and physical knowledge sanctuary of GCTU, housing over 50,000 tech books, journals, and silent collective research labs.",
+    desc: "On the first floor of the Main Administration Building: the digital and physical knowledge sanctuary of GCTU, housing over 50,000 tech books, journals, and silent collective research labs.",
     facts: [
       "Over 50,000 engineering and computer science science volumes",
       "High-speed 24/7 digital e-library subscription portal",
@@ -188,8 +194,8 @@ export const GRAPH_NODES = {
   admin: {
     id: "admin",
     name: "Main Administration Building",
-    lat: 5.595919,
-    lng: -0.222668,
+    lat: 5.596377,
+    lng: -0.223122,
     type: "building",
   },
   blockC: {
@@ -241,20 +247,6 @@ export const GRAPH_NODES = {
     lng: -0.22314,
     type: "building",
   },
-  onny_aud: {
-    id: "onny_aud",
-    name: "Florence Onny Auditorium",
-    lat: 5.595878,
-    lng: -0.222958,
-    type: "building",
-  },
-  library: {
-    id: "library",
-    name: "GCTU Central Library",
-    lat: 5.596377,
-    lng: -0.223122,
-    type: "building",
-  },
 
   // Junctions
   gate: {
@@ -262,6 +254,24 @@ export const GRAPH_NODES = {
     name: "Main Campus Gate",
     lat: 5.595452,
     lng: -0.222366,
+    type: "junction",
+  },
+  // Walkway from the Main Gate into campus (where the Admin block was
+  // first estimated to be).
+  junc_gate: {
+    id: "junc_gate",
+    name: "Main Gate walkway",
+    lat: 5.595919,
+    lng: -0.222668,
+    type: "junction",
+  },
+  // Path beside the Graduate block, outside the Florence Onny Auditorium
+  // (the auditorium itself is inside the block; see BUILDING_LIST).
+  junc_sgsr: {
+    id: "junc_sgsr",
+    name: "Graduate Block (SGSR) walkway",
+    lat: 5.595878,
+    lng: -0.222958,
     type: "junction",
   },
   junc_center: {
@@ -309,14 +319,15 @@ export const CAMPUS_BOUNDARY = [
 
 // Graph Edges/Walkways (undirected)
 export const GRAPH_EDGES = [
-  { from: "gate", to: "admin" },
-  { from: "admin", to: "junc_center" },
-  { from: "admin", to: "onny_aud" },
+  { from: "gate", to: "junc_gate" },
+  { from: "junc_gate", to: "junc_center" },
+  { from: "junc_gate", to: "junc_sgsr" },
+  { from: "junc_gate", to: "admin" },
 
   { from: "junc_center", to: "cafe" },
   { from: "junc_center", to: "blockC" },
   { from: "junc_center", to: "eng" },
-  { from: "junc_center", to: "onny_aud" },
+  { from: "junc_center", to: "junc_sgsr" },
 
   { from: "blockC", to: "junc_west" },
   { from: "junc_west", to: "blockB" },
@@ -327,16 +338,15 @@ export const GRAPH_EDGES = [
 
   { from: "focis", to: "junc_east" },
   { from: "eng", to: "junc_east" },
-  { from: "junc_east", to: "onny_aud" },
+  { from: "junc_east", to: "junc_sgsr" },
   { from: "hospital", to: "focis" },
 
   { from: "cafe", to: "focis" },
   { from: "cafe", to: "blockB" },
   { from: "cafe", to: "eng" },
-  { from: "onny_aud", to: "eng" },
-  { from: "library", to: "junc_center" },
-  { from: "library", to: "blockC" },
-  { from: "admin", to: "library" },
+  { from: "junc_sgsr", to: "eng" },
+  { from: "admin", to: "junc_center" },
+  { from: "admin", to: "blockC" },
 
   // Direct FoCIS <-> Block C walkway (verified adjacent on Google Maps)
   { from: "focis", to: "blockC" },
@@ -344,7 +354,6 @@ export const GRAPH_EDGES = [
   // Direct Hospital <-> western walkway junction
   { from: "hospital", to: "junc_west" },
 
-  // SGSR (Block G) sits beside the Florence Onny Auditorium, reached only
-  // through it (coordinates re-taken from Google Maps).
-  { from: "blockG", to: "onny_aud" },
+  // The Graduate block's entrance, off the walkway beside it.
+  { from: "blockG", to: "junc_sgsr" },
 ];

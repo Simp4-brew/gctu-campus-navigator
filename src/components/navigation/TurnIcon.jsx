@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   CornerDownRight,
   CornerDownLeft,
+  DoorOpen,
 } from "lucide-react";
 
 const ICONS = {
@@ -18,6 +19,7 @@ const ICONS = {
   "slight-left": ArrowUpLeft,
   left: ArrowLeft,
   "sharp-left": CornerDownLeft,
+  indoor: DoorOpen,
 };
 
 /* Arrow matching a turn-by-turn step's turnType. */

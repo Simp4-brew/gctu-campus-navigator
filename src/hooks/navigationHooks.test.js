@@ -34,10 +34,10 @@ describe("useWalkSimulation", () => {
     const [lat] = result.current.position;
     expect(lat).toBeGreaterThan(GRAPH_NODES.gate.lat);
     expect(lat).toBeLessThan(GRAPH_NODES.admin.lat);
-    expect(result.current.status.status).toBe("Heading to: Main Administration Building");
+    expect(result.current.status.status).toBe("Heading to: Main Gate walkway");
 
-    // Gate -> Admin is ~62m, so 10 more seconds is well past arrival.
-    act(() => vi.advanceTimersByTime(10000));
+    // Gate -> Admin is ~133m, so 25 more seconds is well past arrival.
+    act(() => vi.advanceTimersByTime(25000));
 
     expect(result.current.active).toBe(false);
     expect(result.current.position).toEqual([GRAPH_NODES.admin.lat, GRAPH_NODES.admin.lng]);

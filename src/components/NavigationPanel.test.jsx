@@ -108,24 +108,25 @@ describe("UT-01  Render the Live Map view with the default centre coordinates", 
 ========================================================= */
 
 describe("UT-02  Compute route distance between two selected campus points", () => {
-  // Expected value derived independently of getDistance: an equirectangular
-  // projection and a 3D chord-to-arc calculation on the same 6371km sphere
-  // both give 45.4528m for School Hospital -> GCTU Central Library.
+  // Expected value derived independently of getDistance: a 3D chord-to-arc
+  // calculation on the same 6371km sphere gives 64.6502m for
+  // School Hospital -> Campus Cafeteria.
   it("returns the great-circle distance between two campus points", () => {
-    const metres = getDistance(GRAPH_NODES.hospital, GRAPH_NODES.library);
+    const metres = getDistance(GRAPH_NODES.hospital, GRAPH_NODES.cafe);
 
-    expect(metres).toBeCloseTo(45.45, 1);
+    expect(metres).toBeCloseTo(64.65, 1);
   });
 
   it("computes the walking route distance for a selected start and destination", () => {
-    const route = findDijkstraPath("hospital", "onny_aud");
+    const route = findDijkstraPath("hospital", "blockG");
 
-    // School Hospital -> Florence Onny Auditorium, along the campus path graph
-    // (hospital > junc_north > cafe > eng > onny_aud).
-    expect(Math.round(route.distance)).toBe(184);
+    // School Hospital -> Classroom Block G (SGSR), along the campus path graph
+    // (hospital > junc_north > cafe > eng > junc_sgsr > blockG), checked
+    // against an independent Dijkstra: 225.19m.
+    expect(Math.round(route.distance)).toBe(225);
     expect(route.path.length).toBeGreaterThan(1);
     expect(route.path[0]).toBe("hospital");
-    expect(route.path[route.path.length - 1]).toBe("onny_aud");
+    expect(route.path[route.path.length - 1]).toBe("blockG");
   });
 
   it("returns zero distance when a point is missing", () => {
@@ -144,9 +145,9 @@ describe("IT-01  Route Planner start/destination selection triggers the map to r
     const start = screen.getByLabelText(/start/i);
     const destination = screen.getByLabelText(/destination/i);
 
-    // --- first selection: Main Campus Gate -> GCTU Central Library ---
+    // --- first selection: Main Campus Gate -> School Hospital ---
     fireEvent.change(start, { target: { value: "gate" } });
-    fireEvent.change(destination, { target: { value: "library" } });
+    fireEvent.change(destination, { target: { value: "hospital" } });
 
     await waitFor(() => expect(drawnRoute()).not.toBeNull());
 
@@ -157,8 +158,8 @@ describe("IT-01  Route Planner start/destination selection triggers the map to r
     // destination marker.
     expect(firstRoute[0]).toEqual([GRAPH_NODES.gate.lat, GRAPH_NODES.gate.lng]);
     expect(firstRoute[firstRoute.length - 1]).toEqual([
-      GRAPH_NODES.library.lat,
-      GRAPH_NODES.library.lng,
+      GRAPH_NODES.hospital.lat,
+      GRAPH_NODES.hospital.lng,
     ]);
 
     // --- change the destination: the map must redraw to the new marker ---
@@ -188,7 +189,7 @@ describe("IT-03  Switching to the offline (blueprint) rendering mode keeps the s
       target: { value: "gate" },
     });
     fireEvent.change(screen.getByLabelText(/destination/i), {
-      target: { value: "library" },
+      target: { value: "hospital" },
     });
 
     await waitFor(() => expect(drawnRoute()).not.toBeNull());
@@ -245,9 +246,9 @@ describe("Walk demo simulation", () => {
       // The floating turn guide shows the current step.
       expect(document.getElementById("floating-navigation-guide")).toBeInTheDocument();
 
-      // Gate -> Admin is ~62m at 7m/s of demo time.
+      // Gate -> Admin is ~133m at 7m/s of demo time.
       await act(async () => {
-        vi.advanceTimersByTime(12000);
+        vi.advanceTimersByTime(25000);
       });
 
       expect(screen.getByText(/arrived! welcome/i)).toBeInTheDocument();
@@ -273,5 +274,50 @@ describe("Walk demo simulation", () => {
     expect(screen.getByLabelText(/start/i)).not.toBeDisabled();
 
     alertSpy.mockRestore();
+  });
+});
+
+/* =========================================================
+   Places inside buildings
+========================================================= */
+
+describe("Places inside buildings", () => {
+  it("routes to the host building's entrance and ends with an indoor step", () => {
+    renderPanel();
+
+    fireEvent.change(screen.getByLabelText(/start/i), { target: { value: "gate" } });
+    fireEvent.change(screen.getByLabelText(/destination/i), { target: { value: "library" } });
+
+    // The Library is on the Admin block's first floor, so the line ends at Admin.
+    const route = drawnRoute();
+    expect(route[route.length - 1]).toEqual([GRAPH_NODES.admin.lat, GRAPH_NODES.admin.lng]);
+
+    expect(
+      screen.getByText(
+        "Enter the Main Administration Building and take the stairs to the First Floor for the GCTU Central Library.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("(indoors · First Floor)")).toBeInTheDocument();
+  });
+
+  it("gives a ground-floor place an in-building instruction without stairs", () => {
+    renderPanel();
+
+    fireEvent.change(screen.getByLabelText(/destination/i), { target: { value: "onny_aud" } });
+
+    expect(
+      screen.getByText(
+        "Enter the Classroom Block G (SGSR). The Florence Onny Auditorium is on the Ground Floor.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("labels places inside a building in the destination list", () => {
+    renderPanel();
+
+    const options = [...screen.getByLabelText(/destination/i).options].map((o) => o.textContent);
+
+    expect(options).toContain("📖 GCTU Central Library (in Admin Block)");
+    expect(options).toContain("🎭 Florence Onny Auditorium (in SGSR Block)");
   });
 });

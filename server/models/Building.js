@@ -18,6 +18,10 @@ const buildingSchema = new mongoose.Schema({
   desc: { type: String, default: '' },
   facts: { type: [String], default: [] },
   image: { type: String, default: '' },
+  // Set for places that are inside another building (e.g. the Library,
+  // on the Admin block's first floor): the host building's id and floor.
+  insideBuilding: { type: String, default: null },
+  floor: { type: String, default: null },
   // Search aliases e.g. "COLT", "Great Hall" so users can search by nickname
   aliases: { type: [String], default: [] },
   // Sub-locations within a building e.g. lecture halls, offices

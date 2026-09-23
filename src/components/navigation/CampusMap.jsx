@@ -9,6 +9,7 @@ import {
 } from "react-leaflet";
 
 import { BUILDING_LIST, GRAPH_NODES } from "../../data/buildings.js";
+import { PLACES_INSIDE } from "../../lib/routing.js";
 import MapController from "./MapController.jsx";
 import {
   buildingIcon,
@@ -26,18 +27,26 @@ export const DEFAULT_ZOOM = 18;
 
 const ROUTE_STYLE = { lineCap: "round", lineJoin: "round" };
 
-/* Building markers only depend on which two buildings are the route's
-   ends, so they are memoised: the walk demo re-renders the map ten
-   times a second and the popups should not be rebuilt each time. */
+/* Building markers only depend on which buildings are the route's ends,
+   so they are memoised: the walk demo re-renders the map ten times a
+   second and the popups should not be rebuilt each time.
+   Places inside a building (e.g. the Library) get no marker of their own;
+   they are listed in their building's popup instead. */
 const BuildingMarkers = memo(function BuildingMarkers({
-  startId,
-  endId,
+  startNodeId,
+  endNodeId,
   onSetDestination,
 }) {
   return BUILDING_LIST.map((building) => {
-    if (building.id === startId || building.id === endId) {
+    if (
+      building.insideBuilding ||
+      building.id === startNodeId ||
+      building.id === endNodeId
+    ) {
       return null;
     }
+
+    const inside = PLACES_INSIDE[building.id] ?? [];
 
     return (
       <Marker
@@ -54,6 +63,22 @@ const BuildingMarkers = memo(function BuildingMarkers({
             </span>
 
             <p className="popup-building-desc">{building.desc}</p>
+
+            {inside.length > 0 && (
+              <div className="popup-inside">
+                <span className="popup-inside-label">Inside this building</span>
+                {inside.map((place) => (
+                  <button
+                    key={place.id}
+                    type="button"
+                    className="popup-inside-place"
+                    onClick={() => onSetDestination(place.id)}
+                  >
+                    {place.emoji} {place.name} · {place.floor}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <button
               type="button"
@@ -82,7 +107,7 @@ export default function CampusMap({
   showAccuracy,
   onSetDestination,
 }) {
-  const { points, distance, key: routeKey } = route;
+  const { points, distance, key: routeKey, path, startName, endName } = route;
   const hasRoute = points.length > 1;
 
   return (
@@ -142,18 +167,14 @@ export default function CampusMap({
         </>
       )}
 
-      {points.length > 0 && GRAPH_NODES[startId] && (
-        <Marker
-          position={points[0]}
-          icon={startIcon(GRAPH_NODES[startId].name)}
-          zIndexOffset={100}
-        />
+      {points.length > 0 && (
+        <Marker position={points[0]} icon={startIcon(startName)} zIndexOffset={100} />
       )}
 
-      {points.length > 0 && GRAPH_NODES[endId] && (
+      {points.length > 0 && (
         <Marker
           position={points[points.length - 1]}
-          icon={endIcon(GRAPH_NODES[endId].name)}
+          icon={endIcon(endName)}
           zIndexOffset={200}
         />
       )}
@@ -173,8 +194,8 @@ export default function CampusMap({
       )}
 
       <BuildingMarkers
-        startId={startId}
-        endId={endId}
+        startNodeId={path[0]}
+        endNodeId={path[path.length - 1]}
         onSetDestination={onSetDestination}
       />
 

@@ -5,7 +5,8 @@ import TurnIcon from "./TurnIcon.jsx";
 export default function RouteWalkLog({ route, simulating, currentNodeId }) {
   const { path, steps, distance } = route;
 
-  if (path.length < 2) {
+  // A place inside the start building has only its indoor step.
+  if (steps.length === 0) {
     return null;
   }
 
@@ -42,7 +43,7 @@ export default function RouteWalkLog({ route, simulating, currentNodeId }) {
                 </p>
 
                 <span className={`tbt-step-distance ${current ? "active" : ""}`}>
-                  ({step.distance} meters walk)
+                  {step.indoor ? `(indoors · ${step.floor})` : `(${step.distance} meters walk)`}
                 </span>
               </div>
             </li>

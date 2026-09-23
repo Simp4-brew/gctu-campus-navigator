@@ -4,7 +4,7 @@
    Pure functions, no React.
 ========================================================= */
 
-import { GRAPH_NODES, GRAPH_EDGES } from "../data/buildings.js";
+import { BUILDING_LIST, GRAPH_NODES, GRAPH_EDGES } from "../data/buildings.js";
 import { getDistance } from "./geo.js";
 
 /* Undirected adjacency list: node id -> neighbour ids, in edge order. */
@@ -183,10 +183,70 @@ export function generateTurnByTurn(path, nodes = GRAPH_NODES) {
   return directions;
 }
 
-/* Everything the UI needs about the route between two node ids. */
+/* =========================================================
+   Places inside buildings (first step of indoor navigation)
+
+   Some destinations are not separate buildings: the Florence
+   Onny Auditorium is inside the Graduate block, the Library on
+   the first floor of the Admin block. They carry
+   `insideBuilding` and `floor`; routes go to the host
+   building's entrance and finish with an indoor instruction.
+========================================================= */
+
+const PLACES = Object.fromEntries(BUILDING_LIST.map((place) => [place.id, place]));
+
+/* Places located inside each building, keyed by the host building id. */
+export const PLACES_INSIDE = BUILDING_LIST.reduce((inside, place) => {
+  if (place.insideBuilding) {
+    (inside[place.insideBuilding] ??= []).push(place);
+  }
+  return inside;
+}, {});
+
+/* The graph node a place is reached at, and its host building if any. */
+export function resolvePlace(placeId) {
+  const place = PLACES[placeId];
+
+  if (place?.insideBuilding) {
+    return { nodeId: place.insideBuilding, place, host: PLACES[place.insideBuilding] };
+  }
+
+  return { nodeId: placeId, place: place ?? GRAPH_NODES[placeId] ?? null, host: null };
+}
+
+export function placeName(placeId) {
+  return PLACES[placeId]?.name ?? GRAPH_NODES[placeId]?.name ?? placeId;
+}
+
+function indoorStep(key, place, host) {
+  const upstairs = place.floor && !/ground/i.test(place.floor);
+
+  return {
+    key,
+    from: host.name,
+    to: place.name,
+    text: upstairs
+      ? `Enter the ${host.name} and take the stairs to the ${place.floor} for the ${place.name}.`
+      : `Enter the ${host.name}. The ${place.name} is on the ${place.floor}.`,
+    turnType: "indoor",
+    distance: 0,
+    floor: place.floor,
+    indoor: true,
+  };
+}
+
+/* Everything the UI needs about the route between two places
+   (building ids, the gate, or places inside buildings). */
 export function planRoute(startId, endId) {
-  const { path, distance } = findDijkstraPath(startId, endId);
+  const start = resolvePlace(startId);
+  const end = resolvePlace(endId);
+
+  const { path, distance } = findDijkstraPath(start.nodeId, end.nodeId);
   const steps = generateTurnByTurn(path);
+
+  if (end.host && path.length > 0) {
+    steps.push(indoorStep(steps.length, end.place, end.host));
+  }
 
   return {
     path,
@@ -194,5 +254,7 @@ export function planRoute(startId, endId) {
     steps,
     points: pathToLatLngs(path),
     key: path.join(">"),
+    startName: placeName(startId),
+    endName: placeName(endId),
   };
 }

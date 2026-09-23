@@ -30,6 +30,11 @@ const BUILDING_EXTRAS = {
         floor: "Upper Floor",
         desc: "Executive meeting room for university leadership.",
       },
+      {
+        name: "GCTU Central Library",
+        floor: "First Floor",
+        desc: "The university library, on the first floor of the Admin block.",
+      },
     ],
   },
   blockC: {
@@ -67,6 +72,11 @@ const BUILDING_EXTRAS = {
         desc: "Graduate studies administration and research labs.",
       },
       { name: "Room G6", floor: "Ground Floor", desc: "Lecture/seminar room." },
+      {
+        name: "Florence Onny Auditorium",
+        floor: "Ground Floor",
+        desc: "Large auditorium inside the Graduate block, entered through its main entrance.",
+      },
     ],
   },
   focis: {
