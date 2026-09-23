@@ -109,21 +109,21 @@ describe("UT-01  Render the Live Map view with the default centre coordinates", 
 
 describe("UT-02  Compute route distance between two selected campus points", () => {
   // Expected value derived independently of getDistance: a 3D chord-to-arc
-  // calculation on the same 6371km sphere gives 64.6502m for
+  // calculation on the same 6371km sphere gives 78.0492m for
   // School Hospital -> Campus Cafeteria.
   it("returns the great-circle distance between two campus points", () => {
     const metres = getDistance(GRAPH_NODES.hospital, GRAPH_NODES.cafe);
 
-    expect(metres).toBeCloseTo(64.65, 1);
+    expect(metres).toBeCloseTo(78.05, 1);
   });
 
   it("computes the walking route distance for a selected start and destination", () => {
     const route = findDijkstraPath("hospital", "blockG");
 
     // School Hospital -> Classroom Block G (SGSR), along the campus path graph
-    // (hospital > junc_north > cafe > eng > junc_sgsr > blockG), checked
-    // against an independent Dijkstra: 225.19m.
-    expect(Math.round(route.distance)).toBe(225);
+    // (hospital > focis > cafe > eng > junc_sgsr > blockG), checked
+    // against an independent Dijkstra: 196.34m.
+    expect(Math.round(route.distance)).toBe(196);
     expect(route.path.length).toBeGreaterThan(1);
     expect(route.path[0]).toBe("hospital");
     expect(route.path[route.path.length - 1]).toBe("blockG");
@@ -406,5 +406,14 @@ describe("Route planner minimise and expand", () => {
     expect(screen.getByLabelText(/start/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/destination/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /minimize/i })).toBeInTheDocument();
+  });
+});
+
+describe("School Clinic next to FoCIS", () => {
+  it("routes Block C to the clinic through FoCIS in under 50m", () => {
+    const route = findDijkstraPath("blockC", "hospital");
+
+    expect(route.path).toEqual(["blockC", "focis", "hospital"]);
+    expect(route.distance).toBeLessThan(50);
   });
 });
