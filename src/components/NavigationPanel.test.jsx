@@ -430,3 +430,33 @@ describe("School Clinic next to FoCIS", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("Choosing the starting point", () => {
+  it("keeps the picked start when Get Directions sets a destination", () => {
+    const { rerender } = renderPanel();
+
+    fireEvent.change(screen.getByLabelText(/start/i), { target: { value: "hospital" } });
+
+    rerender(
+      <NavigationPanel
+        presetDestination="eng"
+        clearPresetDestination={vi.fn()}
+        theme="light"
+        active={true}
+      />,
+    );
+
+    expect(screen.getByLabelText(/start/i).value).toBe("hospital");
+    expect(screen.getByLabelText(/destination/i).value).toBe("eng");
+  });
+
+  it("opens from the start picked on the previous visit", () => {
+    const { unmount } = renderPanel();
+    fireEvent.change(screen.getByLabelText(/start/i), { target: { value: "hospital" } });
+    unmount();
+
+    renderPanel();
+
+    expect(screen.getByLabelText(/start/i).value).toBe("hospital");
+  });
+});

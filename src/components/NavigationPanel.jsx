@@ -15,6 +15,7 @@ import { BUILDING_LIST, GRAPH_NODES } from "../data/buildings.js";
 import { formatDistance } from "../lib/geo.js";
 import { planRoute } from "../lib/routing.js";
 import { arrivalMessage, speak } from "../lib/speech.js";
+import { storage } from "../lib/storage.js";
 import { useLiveGps } from "../hooks/useLiveGps.js";
 import { useWakeLock } from "../hooks/useWakeLock.js";
 import { useWalkSimulation } from "../hooks/useWalkSimulation.js";
@@ -31,6 +32,14 @@ export { findDijkstraPath } from "../lib/routing.js";
 // A fix further than this from the route means the device is not on campus.
 const FAR_FROM_CAMPUS_M = 300;
 
+const START_KEY = "gctu-start-point";
+
+/* The start picked on a previous visit, or the Main Gate. */
+function savedStartId() {
+  const saved = storage.get(START_KEY);
+  return BUILDING_LIST.some((building) => building.id === saved) ? saved : "gate";
+}
+
 /* =========================================================
    NAVIGATION PANEL
 
@@ -45,11 +54,16 @@ export default function NavigationPanel({
   active,
 }) {
   const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
-  const [startId, setStartId] = useState("gate");
-  const [endId, setEndId] = useState("focis");
+  const [startId, setStartId] = useState(savedStartId);
+  const [endId, setEndId] = useState(() => (savedStartId() === "focis" ? "gate" : "focis"));
   const [panelCollapsed, setPanelCollapsed] = useState(false);
 
   const route = useMemo(() => planRoute(startId, endId), [startId, endId]);
+
+  // Remember the chosen start so the next visit opens from there.
+  useEffect(() => {
+    storage.set(START_KEY, startId);
+  }, [startId]);
 
   // Arrival is announced from a timer or a GPS callback, so it reads the
   // route through a ref rather than a stale closure.
@@ -113,8 +127,10 @@ export default function NavigationPanel({
         stopSimulation();
       }
 
+      // Keep the start the user picked; only move it off the new
+      // destination so the route is not empty.
       setEndId(match.id);
-      setStartId("gate");
+      setStartId((current) => (current === match.id ? "gate" : current));
       setMapCenter([match.lat, match.lng]);
       setPanelCollapsed(false);
     }
